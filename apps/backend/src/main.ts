@@ -17,6 +17,20 @@ import { ConfigurationChecker } from '@gitroom/helpers/configuration/configurati
 import { startMcp } from '@gitroom/nestjs-libraries/chat/start.mcp';
 
 async function start() {
+  const corsOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:6274',
+    ...(process.env.MAIN_URL ? [process.env.MAIN_URL] : []),
+  ];
+
+  if (process.env.ADDITIONAL_CORS_ORIGINS) {
+    corsOrigins.push(
+      ...process.env.ADDITIONAL_CORS_ORIGINS.split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0)
+    );
+  }
+
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
     cors: {
@@ -29,11 +43,7 @@ async function start() {
         'x-copilotkit-runtime-client-gql-version',
         ...(process.env.NOT_SECURED ? ['auth', 'showorg', 'impersonate'] : []),
       ],
-      origin: [
-        process.env.FRONTEND_URL,
-        'http://localhost:6274',
-        ...(process.env.MAIN_URL ? [process.env.MAIN_URL] : []),
-      ],
+      origin: corsOrigins,
     },
   });
 

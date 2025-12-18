@@ -3,6 +3,12 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: [
+    'http://localhost:4200',
+    'http://127.0.0.1:4200',
+    'http://103.129.149.69:4200',
+    'https://dev.otomatis.in'
+  ],
   experimental: {
     proxyTimeout: 90_000,
   },

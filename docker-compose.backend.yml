@@ -1,0 +1,59 @@
+services:
+  otomatisin-postgres:
+    image: postgres:17-alpine
+    container_name: otomatisin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: otomatisin-local-pwd
+      POSTGRES_USER: otomatisin-local
+      POSTGRES_DB: otomatisin-db-local
+    volumes:
+      - otomatisin-postgres-data:/var/lib/postgresql/data
+    networks:
+      - otomatisin-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otomatisin-local -d otomatisin-db-local"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  otomatisin-redis:
+    image: redis:7-alpine
+    container_name: otomatisin-redis
+    restart: unless-stopped
+    volumes:
+      - otomatisin-redis-data:/data
+    networks:
+      - otomatisin-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  otomatisin-backend:
+    image: otomatisin-backend:local
+    container_name: otomatisin-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3333:3000"
+    env_file:
+      - .env.backend
+    networks:
+      - otomatisin-network
+    depends_on:
+      otomatisin-postgres:
+        condition: service_healthy
+      otomatisin-redis:
+        condition: service_healthy
+
+volumes:
+  otomatisin-postgres-data:
+    name: otomatisin-postgres-data
+  otomatisin-redis-data:
+    name: otomatisin-redis-data
+
+networks:
+  otomatisin-network:
+    name: otomatisin-network
+    driver: bridge

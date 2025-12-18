@@ -1,0 +1,46 @@
+services:
+  postiz-postgres:
+    image: postgres:17-alpine
+    container_name: postiz-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postiz-local-pwd
+      POSTGRES_USER: postiz-local
+      POSTGRES_DB: postiz-db-local
+    volumes:
+      - postiz-postgres-data:/var/lib/postgresql/data
+    networks:
+      - postiz-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postiz-local -d postiz-db-local"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  postiz-redis:
+    image: redis:7-alpine
+    container_name: postiz-redis
+    restart: unless-stopped
+    volumes:
+      - postiz-redis-data:/data
+    networks:
+      - postiz-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postiz-postgres-data:
+    name: postiz-postgres-data
+  postiz-redis-data:
+    name: postiz-redis-data
+  postiz-config:
+    name: postiz-config
+  postiz-uploads:
+    name: postiz-uploads
+
+networks:
+  postiz-network:
+    external: true

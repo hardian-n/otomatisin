@@ -2,29 +2,33 @@
 
 import {
   DetailedHTMLProps,
-  FC,
   InputHTMLAttributes,
   ReactNode,
+  forwardRef,
+  MutableRefObject,
   useEffect,
   useMemo,
 } from 'react';
 import { clsx } from 'clsx';
-import { useFormContext, useWatch } from 'react-hook-form';
+import { useFormContext } from 'react-hook-form';
 import { TranslatedLabel } from '../translation/translated-label';
 
-export const Input: FC<
-  DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement> & {
-    removeError?: boolean;
-    error?: any;
-    disableForm?: boolean;
-    customUpdate?: () => void;
-    label: string;
-    name: string;
-    icon?: ReactNode;
-    translationKey?: string;
-    translationParams?: Record<string, string | number>;
-  }
-> = (props) => {
+type InputProps = DetailedHTMLProps<
+  InputHTMLAttributes<HTMLInputElement>,
+  HTMLInputElement
+> & {
+  removeError?: boolean;
+  error?: any;
+  disableForm?: boolean;
+  customUpdate?: () => void;
+  label: string;
+  name: string;
+  icon?: ReactNode;
+  translationKey?: string;
+  translationParams?: Record<string, string | number>;
+};
+
+export const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
   const {
     label,
     icon,
@@ -49,6 +53,27 @@ export const Input: FC<
       customUpdate();
     }
   }, [watch]);
+  const registerProps =
+    !disableForm && form && props.name ? form.register(props.name) : undefined;
+  const { ref: registerRef, ...registeredRest } = registerProps || {
+    ref: undefined,
+  };
+
+  const setRefs = (element: HTMLInputElement | null) => {
+    if (typeof registerRef === 'function') {
+      registerRef(element);
+    } else if (registerRef && typeof registerRef === 'object') {
+      (registerRef as MutableRefObject<HTMLInputElement | null>).current =
+        element;
+    }
+
+    if (typeof ref === 'function') {
+      ref(element);
+    } else if (ref && typeof ref === 'object') {
+      (ref as MutableRefObject<HTMLInputElement | null>).current = element;
+    }
+  };
+
   return (
     <div className="flex flex-col gap-[6px]">
       {!!label && (
@@ -72,7 +97,8 @@ export const Input: FC<
             'h-full bg-transparent outline-none flex-1 text-[14px] text-textColor',
             icon ? 'pl-[8px] pe-[16px]' : 'px-[16px]'
           )}
-          {...(disableForm ? {} : form.register(props.name))}
+          ref={setRefs}
+          {...registeredRest}
           {...rest}
         />
       </div>
@@ -81,4 +107,6 @@ export const Input: FC<
       )}
     </div>
   );
-};
+});
+
+Input.displayName = 'Input';

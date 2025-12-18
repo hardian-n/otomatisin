@@ -2,11 +2,11 @@
 
 ## Introduction
 
-The Postiz app is committed to ensuring the security and integrity of our users' data. This security policy outlines our procedures for handling security vulnerabilities and our disclosure policy.
+The Otomatis.in app is committed to ensuring the security and integrity of our users' data. This security policy outlines our procedures for handling security vulnerabilities and our disclosure policy.
 
 ## Reporting Security Vulnerabilities
 
-If you discover a security vulnerability in the Postiz app, please report it to us privately via email to one of the maintainers:
+If you discover a security vulnerability in the Otomatis.in app, please report it to us privately via email to one of the maintainers:
 
 - @nevo-david
 - @ennogelhaus ([email](mailto:gelhausenno@outlook.de))
@@ -19,7 +19,7 @@ When reporting a security vulnerability, please provide as much detail as possib
 
 ## Supported Versions
 
-This project currently only supports the latest release. We recommend that users always use the latest version of the Postiz app to ensure they have the latest security patches.
+This project currently only supports the latest release. We recommend that users always use the latest version of the Otomatis.in app to ensure they have the latest security patches.
 
 ## Disclosure Guidelines
 

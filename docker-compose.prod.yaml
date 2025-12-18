@@ -1,0 +1,48 @@
+services:
+  postiz:
+    image: otomatisin/postiz:prod-20251218-0905
+    container_name: postiz-prod
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:5000:5000"
+
+    env_file:
+      - .env.prod
+
+    volumes:
+      - ./.env.prod:/app/.env:ro
+      - postiz-config:/config/
+      - postiz-uploads:/uploads/
+
+    environment:
+      # URL prod (wajib konsisten)
+      NEXTAUTH_URL: "https://app.otomatis.in"
+      FRONTEND_URL: "https://app.otomatis.in"
+      MAIN_URL: "https://app.otomatis.in"
+
+      # backend domain
+      NEXT_PUBLIC_BACKEND_URL: "https://api.otomatis.in"
+
+      # jangan pakai host.docker.internal di VPS Linux
+      DATABASE_URL: "postgresql://postiz-local:postiz-local-pwd@postiz-postgres:5432/postiz-db-local?schema=public"
+      REDIS_URL: "redis://postiz-redis:6379"
+
+    networks:
+      - postiz-network
+
+    depends_on:
+      postiz-postgres:
+        condition: service_healthy
+      postiz-redis:
+        condition: service_healthy
+
+networks:
+  postiz-network:
+    external: true
+
+volumes:
+  postiz-config:
+    external: true
+  postiz-uploads:
+    external: true
