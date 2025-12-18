@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     image: otomatisin/postiz:dev
+    container_name: postiz-dev
     restart: unless-stopped
 
     ports:
@@ -27,12 +28,6 @@ services:
 
     networks:
       - postiz-network
-
-    depends_on:
-      postiz-postgres:
-        condition: service_healthy
-      postiz-redis:
-        condition: service_healthy
 
 networks:
   postiz-network:

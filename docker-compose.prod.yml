@@ -1,6 +1,6 @@
 services:
   postiz:
-    image: otomatisin/postiz:prod-20251218-0905
+    image: otomatisin/postiz:prod
     container_name: postiz-prod
     restart: unless-stopped
 
@@ -20,6 +20,8 @@ services:
       NEXTAUTH_URL: "https://app.otomatis.in"
       FRONTEND_URL: "https://app.otomatis.in"
       MAIN_URL: "https://app.otomatis.in"
+      PORT: "3000"
+
 
       # backend domain
       NEXT_PUBLIC_BACKEND_URL: "https://api.otomatis.in"
