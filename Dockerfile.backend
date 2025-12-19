@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/pnpm-store \
     --mount=type=cache,target=/root/.cache \
     pnpm install --frozen-lockfile --filter "./apps/backend..." \
  && NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter "./apps/backend..." run build \
- && pnpm --filter "./apps/backend..." prune --prod \
+ && pnpm install --prod --frozen-lockfile --filter "./apps/backend..." \
  && pnpm store prune \
  && rm -rf /root/.npm /tmp/*
 

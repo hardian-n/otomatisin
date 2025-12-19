@@ -16,9 +16,9 @@ RUN --mount=type=cache,target=/pnpm-store \
     --mount=type=cache,target=/root/.cache \
     pnpm install --frozen-lockfile --filter "./apps/frontend..." \
  && NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter "./apps/frontend..." run build \
- && pnpm -r --filter "./apps/frontend..." prune --production \
+ && pnpm install --prod --frozen-lockfile --filter "./apps/frontend..." \
  && pnpm store prune \
- && rm -rf /pnpm-store /root/.cache /root/.npm /tmp/*
+ && rm -rf /root/.npm /tmp/*
 
 RUN apk del .build-deps
 
