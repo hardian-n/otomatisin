@@ -1,0 +1,36 @@
+name: Deploy to VPS (pull & up)
+
+on:
+  workflow_run:
+    workflows: ["Build & Push Docker Images (GHCR)"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            cd "${{ secrets.VPS_PATH }}"
+
+            # Pull image terbaru (tanpa build di VPS)
+            docker compose -p otomatisin_prod -f docker-compose.prod.yml pull
+            docker compose -p otomatisin_api  -f docker-compose.backend.yml pull || true
+
+            # Naikkan container (rolling update sederhana)
+            docker compose -p otomatisin_prod -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -p otomatisin_api  -f docker-compose.backend.yml up -d --remove-orphans
+
+            # Bersihkan sisa image lama biar HDD aman
+            docker image prune -af || true
+            docker builder prune -af || true

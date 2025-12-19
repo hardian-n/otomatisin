@@ -1,21 +1,42 @@
 FROM node:22.20-alpine
+
 ARG NEXT_PUBLIC_VERSION
 ENV NEXT_PUBLIC_VERSION=$NEXT_PUBLIC_VERSION
-RUN apk add --no-cache g++ make py3-pip bash nginx
-RUN adduser -D -g 'www' www
-RUN mkdir /www
-RUN chown -R www:www /var/lib/nginx
-RUN chown -R www:www /www
 
+# Runtime deps (yang dipakai saat container jalan)
+RUN apk add --no-cache bash nginx
 
-RUN npm --no-update-notifier --no-fund --global install pnpm@10.6.1 pm2
+# Build deps (cuma buat compile native modules saat pnpm install)
+RUN apk add --no-cache --virtual .build-deps g++ make py3-pip
+
+# user nginx
+RUN adduser -D -g 'www' www \
+  && mkdir -p /www \
+  && chown -R www:www /var/lib/nginx /www
 
 WORKDIR /app
 
+# Pakai corepack agar nggak perlu npm install -g pnpm (lebih clean)
+# Tetap "pin" ke versi yang kamu pakai sebelumnya
+RUN corepack enable && corepack prepare pnpm@10.6.1 --activate
+RUN npm --no-update-notifier --no-fund --global install pm2
+
+# Konfigurasi pnpm store agar gampang dibersihkan
+ENV PNPM_STORE_PATH=/pnpm-store
+
+# Copy source + nginx config
 COPY . /app
 COPY var/docker/nginx.conf /etc/nginx/nginx.conf
 
-RUN pnpm install
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
+# Install + build pakai cache buildkit (cache tidak masuk image layer)
+RUN --mount=type=cache,target=/pnpm-store \
+    --mount=type=cache,target=/root/.cache \
+    pnpm install --frozen-lockfile \
+ && NODE_OPTIONS="--max-old-space-size=4096" pnpm run build \
+ && pnpm store prune \
+ && rm -rf /pnpm-store /root/.cache /root/.npm /tmp/*
+
+# Buang build deps biar image lebih kecil
+RUN apk del .build-deps
 
 CMD ["sh", "-c", "nginx && pnpm run pm2"]
