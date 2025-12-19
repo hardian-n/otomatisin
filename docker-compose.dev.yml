@@ -25,7 +25,7 @@ services:
 
       DATABASE_URL: "postgresql://postiz-local:postiz-local-pwd@postiz-postgres:5432/postiz-db-local?schema=public"
       REDIS_URL: "redis://postiz-redis:6379"
-
+      NODE_ENV: development
     networks:
       - postiz-network
 
