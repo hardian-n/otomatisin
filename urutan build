@@ -1,0 +1,30 @@
+Asumsi sesuai setup kamu sebelumnya:
+DEV pakai docker-compose.dev.yml dengan project name otomatisin_dev
+PROD/LIVE (app.otomatis.in) pakai docker-compose.yml dengan project name otomatisin
+Folder kerja: /opt/otomatisin (sesuaikan kalau beda)
+
+A) Rebuild DEV → dev.otomatis.in (aman, cepat, minim sampah)
+
+git pull
+docker builder prune -af
+docker image prune -af
+docker system prune -af --volumes
+docker compose -p otomatisin_dev -f docker-compose.dev.yml up -d
+docker compose -p otomatisin_dev -f docker-compose.dev.yml build --no-cache postiz-dev
+docker compose -p otomatisin_dev -f docker-compose.dev.yml ps
+docker compose -p otomatisin_dev -f docker-compose.dev.yml logs --tail 200 -f
+curl -sI http://127.0.0.1:4200 | head
+curl -sI http://127.0.0.1:3333/auth | head
+docker image prune -f
+
+B) Rebuild PROD/LIVE → app.otomatis.in (aman, minim risiko 502/404)
+docker compose -p otomatisin -f docker-compose.yml build
+docker compose -p otomatisin -f docker-compose.yml up -d
+docker compose -p otomatisin -f docker-compose.yml build --no-cache postiz
+docker compose -p otomatisin -f docker-compose.yml ps
+docker compose -p otomatisin -f docker-compose.yml logs --tail 200 -f
+curl -sI https://app.otomatis.in | head -n 20
+curl -sI https://api.otomatis.in/auth | head -n 20
+curl -sI https://api.otomatis.in/health | head -n 20
+docker image prune -f
+docker builder prune -f

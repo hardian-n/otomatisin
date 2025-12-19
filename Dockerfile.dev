@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/pnpm-store \
     pnpm install --frozen-lockfile \
  && NODE_OPTIONS="--max-old-space-size=4096" pnpm run build \
  && pnpm store prune \
- && rm -rf /pnpm-store /root/.cache /root/.npm /tmp/*
+ && rm -rf /root/.npm /tmp/*
 
 # Buang build deps biar image lebih kecil
 RUN apk del .build-deps
