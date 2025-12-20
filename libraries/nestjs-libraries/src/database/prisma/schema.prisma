@@ -39,6 +39,8 @@ model Organization {
   usedCodes         UsedCodes[]
   users             UserOrganization[]
   webhooks          Webhooks[]
+  autoreplyRules    AutoreplyRule[]    @relation("OrganizationAutoreplyRules")
+  autoreplyLogs     AutoreplyLog[]     @relation("OrganizationAutoreplyLogs")
 }
 
 model Tags {
@@ -330,6 +332,8 @@ model Integration {
   orderItems            OrderItems[]
   plugs                 Plugs[]
   posts                 Post[]
+  autoreplyRules        AutoreplyRule[]        @relation("IntegrationAutoreplyRules")
+  autoreplyLogs         AutoreplyLog[]         @relation("IntegrationAutoreplyLogs")
 
   @@unique([organizationId, internalId])
   @@index([rootInternalId])
@@ -826,6 +830,67 @@ model mastra_workflow_snapshot {
   updatedAtZ    DateTime? @default(now()) @db.Timestamptz(6)
 
   @@unique([workflow_name, run_id], map: "public_mastra_workflow_snapshot_workflow_name_run_id_key")
+}
+
+// --- Autoreply ---
+
+enum AutoreplyMatchType {
+  EXACT
+  CONTAINS
+  REGEX
+}
+
+model AutoreplyRule {
+  id              String             @id @default(cuid())
+  organizationId  String
+  channel         String
+  integrationId   String?
+  channelTargetId String?
+  name            String?
+  keywordPattern  String
+  matchType       AutoreplyMatchType
+  replyText       String
+  priority        Int                @default(100)
+  delaySec        Int                @default(0)
+  cooldownSec     Int                @default(0)
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  organization    Organization       @relation("OrganizationAutoreplyRules", fields: [organizationId], references: [id])
+  integration     Integration?       @relation("IntegrationAutoreplyRules", fields: [integrationId], references: [id])
+  logs            AutoreplyLog[]
+
+  @@index([organizationId])
+  @@index([channel, organizationId])
+  @@index([channel, channelTargetId, priority])
+  @@map("autoreply_rules")
+}
+
+model AutoreplyLog {
+  id               BigInt              @id @default(autoincrement())
+  ruleId           String?
+  organizationId   String
+  channel          String
+  integrationId    String?
+  channelTargetId  String?
+  messageId        String?
+  authorId         String?
+  matchedText      String?
+  matchType        AutoreplyMatchType
+  replyText        String?
+  cooldownApplied  Boolean             @default(false)
+  error            String?
+  meta             Json?
+  triggeredAt      DateTime            @default(now())
+  rule             AutoreplyRule?      @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  organization     Organization        @relation("OrganizationAutoreplyLogs", fields: [organizationId], references: [id])
+  integration      Integration?        @relation("IntegrationAutoreplyLogs", fields: [integrationId], references: [id])
+
+  @@index([integrationId, channelTargetId, triggeredAt])
+  @@index([ruleId, triggeredAt])
+  @@index([ruleId, authorId, triggeredAt])
+  @@index([organizationId])
+  @@map("autoreply_logs")
 }
 
 enum OrderStatus {

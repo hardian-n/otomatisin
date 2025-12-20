@@ -34,6 +34,9 @@ import { AutopostController } from '@gitroom/backend/api/routes/autopost.control
 import { SetsController } from '@gitroom/backend/api/routes/sets.controller';
 import { ThirdPartyController } from '@gitroom/backend/api/routes/third-party.controller';
 import { MonitorController } from '@gitroom/backend/api/routes/monitor.controller';
+import { AutoreplyController } from '@gitroom/backend/api/routes/autoreply.controller';
+import { AutoreplyTestController } from '@gitroom/backend/api/routes/autoreply.test.controller';
+import { AutoreplyService } from '@gitroom/backend/services/autoreply/autoreply.service';
 
 const authenticatedController = [
   UsersController,
@@ -53,6 +56,7 @@ const authenticatedController = [
   AutopostController,
   SetsController,
   ThirdPartyController,
+  AutoreplyController,
 ];
 @Module({
   imports: [UploadModule],
@@ -62,6 +66,7 @@ const authenticatedController = [
     AuthController,
     PublicController,
     MonitorController,
+    AutoreplyTestController,
     ...authenticatedController,
   ],
   providers: [
@@ -77,6 +82,7 @@ const authenticatedController = [
     TrackService,
     ShortLinkService,
     Nowpayments,
+    AutoreplyService,
   ],
   get exports() {
     return [...this.imports, ...this.providers];

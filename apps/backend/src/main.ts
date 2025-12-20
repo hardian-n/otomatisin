@@ -47,7 +47,9 @@ async function start() {
     },
   });
 
-  await startMcp(app);
+if (process.env.MCP_ENABLED === 'true') {
+  await startMcp();
+}
 
   app.useGlobalPipes(
     new ValidationPipe({
