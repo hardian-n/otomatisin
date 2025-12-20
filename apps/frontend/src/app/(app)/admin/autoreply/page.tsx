@@ -238,12 +238,14 @@ export default function AutoreplyAdminPage() {
           <form className="space-y-3" onSubmit={handleSubmit}>
             <Input
               label="Channel"
+              name="channel"
               placeholder="e.g. telegram / thread"
               value={form.channel || ''}
               onChange={(e: any) => setForm((s) => ({ ...s, channel: e.target.value }))}
             />
             <Input
               label="Channel Target ID (optional)"
+              name="channelTargetId"
               placeholder="chat_id / room_id"
               value={form.channelTargetId || ''}
               onChange={(e: any) =>
@@ -252,6 +254,7 @@ export default function AutoreplyAdminPage() {
             />
             <Input
               label="Keyword / Pattern"
+              name="keywordPattern"
               placeholder="keyword or regex"
               value={form.keywordPattern || ''}
               onChange={(e: any) =>
@@ -276,6 +279,7 @@ export default function AutoreplyAdminPage() {
             </div>
             <Input
               label="Reply Text"
+              name="replyText"
               placeholder="What to reply"
               value={form.replyText || ''}
               onChange={(e: any) => setForm((s) => ({ ...s, replyText: e.target.value }))}
@@ -283,6 +287,7 @@ export default function AutoreplyAdminPage() {
             <div className="grid grid-cols-3 gap-3">
               <Input
                 label="Priority"
+                name="priority"
                 type="number"
                 value={form.priority ?? 100}
                 onChange={(e: any) =>
@@ -291,6 +296,7 @@ export default function AutoreplyAdminPage() {
               />
               <Input
                 label="Delay (sec)"
+                name="delaySec"
                 type="number"
                 value={form.delaySec ?? 0}
                 onChange={(e: any) =>
@@ -299,6 +305,7 @@ export default function AutoreplyAdminPage() {
               />
               <Input
                 label="Cooldown (sec)"
+                name="cooldownSec"
                 type="number"
                 value={form.cooldownSec ?? 0}
                 onChange={(e: any) =>
