@@ -203,12 +203,12 @@ export default function AutoreplyAdminPage() {
                     <td className="px-3 py-2">{r.priority}</td>
                     <td className="px-3 py-2">{r.isActive ? 'Yes' : 'No'}</td>
                     <td className="px-3 py-2 space-x-2">
-                      <Button size="sm" type="button" onClick={() => onEdit(r)}>
+                      <Button className="h-[32px] px-3 text-sm" type="button" onClick={() => onEdit(r)}>
                         Edit
                       </Button>
                       <Button
-                        size="sm"
-                        variant="secondary"
+                        secondary
+                        className="h-[32px] px-3 text-sm"
                         type="button"
                         onClick={() => onDelete(r.id)}
                       >
