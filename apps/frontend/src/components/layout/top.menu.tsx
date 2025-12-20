@@ -60,6 +60,34 @@ export const useMenuItem = () => {
       path: '/agents',
     },
     {
+      name: t('autoreply', 'Autoreply'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M5 7H15C18.3137 7 21 9.68629 21 13C21 16.3137 18.3137 19 15 19H11"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M7 3L3 7L7 11"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/autoreply',
+    },
+    {
       name: t('analytics', 'Analytics'),
       icon: (
         <svg
