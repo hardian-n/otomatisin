@@ -18,26 +18,29 @@ export const SelectCustomer: FC<{
     return null;
   }
   return (
-    <Select
-      hideErrors={true}
-      label=""
-      name="customer"
-      value={customer}
-      onChange={(e) => {
-        setCustomer(e.target.value);
-        onChange(e.target.value);
-      }}
-      disableForm={true}
-    >
-      <option value="">{t('selected_customer', 'Selected Customer')}</option>
-      {uniqBy(integrations, (u) => u?.customer?.name)
-        .filter((f) => f.customer?.name)
-        .map((p) => (
-          <option key={p.customer?.id} value={p.customer?.id}>
-            {t('customer', 'Customer:')}
-            {p.customer?.name}
-          </option>
-        ))}
-    </Select>
+    <div className="w-full sm:w-[240px]">
+      <Select
+        hideErrors={true}
+        label=""
+        name="customer"
+        value={customer}
+        className="w-full"
+        onChange={(e) => {
+          setCustomer(e.target.value);
+          onChange(e.target.value);
+        }}
+        disableForm={true}
+      >
+        <option value="">{t('selected_customer', 'Selected Customer')}</option>
+        {uniqBy(integrations, (u) => u?.customer?.name)
+          .filter((f) => f.customer?.name)
+          .map((p) => (
+            <option key={p.customer?.id} value={p.customer?.id}>
+              {t('customer', 'Customer:')}
+              {p.customer?.name}
+            </option>
+          ))}
+      </Select>
+    </div>
   );
 };
