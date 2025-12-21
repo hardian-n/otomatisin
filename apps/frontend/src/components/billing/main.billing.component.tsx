@@ -440,9 +440,11 @@ export const MainBillingComponent: FC<{
   }
   return (
     <div className="flex flex-col gap-[16px]">
-      <div className="flex flex-row">
-        <div className="flex-1 text-[20px]">{t('plans', 'Plans')}</div>
-        <div className="flex items-center gap-[16px]">
+      <div className="flex flex-col sm:flex-row gap-[12px] sm:items-center">
+        <div className="flex-1 text-[18px] sm:text-[20px]">
+          {t('plans', 'Plans')}
+        </div>
+        <div className="flex flex-wrap items-center gap-[12px] text-[12px] sm:text-[14px]">
           <div>{t('monthly', 'MONTHLY')}</div>
           <div>
             <Slider value={monthlyOrYearly} onChange={setMonthlyOrYearly} />
@@ -452,16 +454,16 @@ export const MainBillingComponent: FC<{
       </div>
 
       {finishTrial && <FinishTrial close={() => setFinishTrial(false)} />}
-      <div className="flex gap-[16px] [@media(max-width:1024px)]:flex-col [@media(max-width:1024px)]:text-center">
+      <div className="flex flex-col lg:flex-row gap-[16px] text-center lg:text-left">
         {Object.entries(pricing)
           .filter((f) => !isGeneral || f[0] !== 'FREE')
           .map(([name, values]) => (
             <div
               key={name}
-              className="flex-1 bg-sixth border border-customColor6 rounded-[4px] p-[24px] gap-[16px] flex flex-col [@media(max-width:1024px)]:items-center"
+              className="flex-1 bg-sixth border border-customColor6 rounded-[4px] p-[16px] sm:p-[20px] lg:p-[24px] gap-[16px] flex flex-col items-center lg:items-stretch"
             >
               <div className="text-[18px]">{name}</div>
-              <div className="text-[38px] flex gap-[2px] items-center">
+              <div className="text-[28px] sm:text-[32px] lg:text-[38px] flex gap-[2px] items-center">
                 <div>
                   $
                   {monthlyOrYearly === 'on'
@@ -472,7 +474,7 @@ export const MainBillingComponent: FC<{
                   {monthlyOrYearly === 'on' ? '/year' : '/month'}
                 </div>
               </div>
-              <div className="text-[14px] flex gap-[10px]">
+              <div className="text-[14px] flex flex-col sm:flex-row items-center sm:items-start gap-[10px]">
                 {currentPackage === name.toUpperCase() &&
                 subscription?.cancelAt ? (
                   <div className="gap-[3px] flex flex-col">
@@ -540,8 +542,8 @@ export const MainBillingComponent: FC<{
       </div>
       {!subscription?.id && <PurchaseCrypto />}
       {!!subscription?.id && (
-        <div className="flex justify-center mt-[20px] gap-[10px]">
-          <Button onClick={updatePayment}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center mt-[20px] gap-[10px]">
+          <Button className="w-full sm:w-auto" onClick={updatePayment}>
             {t(
               'update_payment_method_invoices_history',
               'Update Payment Method / Invoices History'
@@ -549,7 +551,7 @@ export const MainBillingComponent: FC<{
           </Button>
           {isGeneral && !subscription?.cancelAt && (
             <Button
-              className="bg-red-500"
+              className="bg-red-500 w-full sm:w-auto"
               loading={loading}
               onClick={moveToCheckout('FREE')}
             >

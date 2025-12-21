@@ -116,13 +116,13 @@ export const SettingsPopup: FC<{
 
   return (
     <>
-      <div className="bg-newBgColorInner p-[20px] flex flex-col transition-all w-[260px]">
+      <div className="bg-newBgColorInner p-[12px] lg:p-[20px] flex flex-col transition-all w-full lg:w-[260px]">
         <div className="flex flex-1 flex-col gap-[15px]">
           {list.map(({ tab: tabKey, label }) => (
             <div
               key={tabKey}
               className={clsx(
-                'cursor-pointer flex items-center gap-[12px] group/profile hover:bg-boxHover rounded-e-[8px]',
+                'cursor-pointer flex items-center gap-[12px] group/profile hover:bg-boxHover rounded-[8px] lg:rounded-e-[8px]',
                 tabKey === tab && 'bg-boxHover'
               )}
               onClick={() => setTab(tabKey)}
@@ -132,10 +132,10 @@ export const SettingsPopup: FC<{
                   'h-full w-[4px] rounded-s-[3px] opacity-0 group-hover/profile:opacity-100 transition-opacity',
                   tabKey === tab && 'opacity-100'
                 )}
-              >
-                <SVGLine />
-              </div>
-              {label}
+                >
+                  <SVGLine />
+                </div>
+              <div className="text-[14px] lg:text-[16px]">{label}</div>
             </div>
           ))}
         </div>
@@ -147,7 +147,7 @@ export const SettingsPopup: FC<{
           )}
         </div>
       </div>
-      <div className="bg-newBgColorInner flex-1 flex-col flex p-[20px] gap-[12px]">
+      <div className="bg-newBgColorInner flex-1 flex-col flex p-[12px] lg:p-[20px] gap-[12px]">
         <FormProvider {...form}>
           <form onSubmit={form.handleSubmit(submit)}>
             {!!getRef && (

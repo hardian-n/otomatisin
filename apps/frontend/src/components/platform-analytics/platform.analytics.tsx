@@ -143,11 +143,11 @@ export const PlatformAnalytics = () => {
 
   if (!sortedIntegrations.length && !isLoading) {
     return (
-      <div className="bg-newBgColorInner p-[20px] flex flex-col gap-[15px] transition-all flex-1 justify-center items-center text-center">
+      <div className="bg-newBgColorInner p-[12px] lg:p-[20px] flex flex-col gap-[15px] transition-all flex-1 justify-center items-center text-center">
         <div>
           <img src="/peoplemarketplace.svg" />
         </div>
-        <div className="text-[48px]">
+        <div className="text-[24px] sm:text-[32px] lg:text-[48px]">
           {t('can_t_show_analytics_yet', "Can't show analytics yet")}
           <br />
           {t(
@@ -155,7 +155,7 @@ export const PlatformAnalytics = () => {
             'You have to add Social Media channels'
           )}
         </div>
-        <div className="text-[20px]">
+        <div className="text-[14px] sm:text-[16px] lg:text-[20px]">
           {t('supported', 'Supported:')}
           {allowedIntegrations.map((p) => capitalize(p)).join(', ')}
         </div>
@@ -172,8 +172,10 @@ export const PlatformAnalytics = () => {
     <>
       <div
         className={clsx(
-          'bg-newBgColorInner p-[20px] flex flex-col gap-[15px] transition-all',
-          collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
+          'bg-newBgColorInner p-[12px] lg:p-[20px] flex flex-col gap-[15px] transition-all w-full',
+          collapseMenu === '1'
+            ? 'lg:group lg:sidebar lg:w-[100px]'
+            : 'lg:w-[260px]'
         )}
       >
         <div className="flex gap-[12px] flex-col">
@@ -183,7 +185,7 @@ export const PlatformAnalytics = () => {
             </h2>
             <div
               onClick={() => setCollapseMenu(collapseMenu === '1' ? '0' : '1')}
-              className="group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] flex items-center justify-center cursor-pointer select-none"
+              className="group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] hidden lg:flex items-center justify-center cursor-pointer select-none"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -270,10 +272,10 @@ export const PlatformAnalytics = () => {
           ))}
         </div>
       </div>
-      <div className="bg-newBgColorInner flex-1 flex-col flex p-[20px] gap-[12px]">
+      <div className="bg-newBgColorInner flex-1 flex-col flex p-[12px] lg:p-[20px] gap-[12px]">
         {!!options.length && (
           <div className="flex-1 flex flex-col gap-[14px]">
-            <div className="max-w-[200px]">
+            <div className="w-full sm:max-w-[200px]">
               <Select
                 label=""
                 name="date"

@@ -58,9 +58,10 @@ export const MediaPortal: FC<{
   );
 };
 
-export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
-  onChange,
-}) => {
+export const AgentList: FC<{
+  onChange: (arr: any[]) => void;
+  className?: string;
+}> = ({ onChange, className }) => {
   const fetch = useFetch();
   const [selected, setSelected] = useState([]);
 
@@ -104,8 +105,11 @@ export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
   return (
     <div
       className={clsx(
-        'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all relative',
-        collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
+        'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all relative w-full',
+        collapseMenu === '1'
+          ? 'lg:group lg:sidebar lg:w-[100px]'
+          : 'lg:w-[260px]',
+        className
       )}
     >
       <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
@@ -115,7 +119,7 @@ export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
           </h2>
           <div
             onClick={() => setCollapseMenu(collapseMenu === '1' ? '0' : '1')}
-            className="-mt-3 group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] flex items-center justify-center cursor-pointer select-none"
+            className="-mt-3 group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] hidden lg:flex items-center justify-center cursor-pointer select-none"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -196,17 +200,64 @@ export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
 export const PropertiesContext = createContext({ properties: [] });
 export const Agent: FC<{ children: ReactNode }> = ({ children }) => {
   const [properties, setProperties] = useState([]);
+  const [activePanel, setActivePanel] = useState<
+    'channels' | 'chat' | 'threads'
+  >('chat');
 
   return (
     <PropertiesContext.Provider value={{ properties }}>
-      <AgentList onChange={setProperties} />
-      <div className="bg-newBgColorInner flex flex-1">{children}</div>
-      <Threads />
+      <div className="flex flex-1 flex-col w-full">
+        <div className="lg:hidden bg-newBgColorInner border-b border-newBgLineColor px-[12px] py-[10px]">
+          <div className="flex gap-[8px] border border-newTableBorder rounded-[8px] p-[4px] text-[12px] font-[600] text-textItemBlur">
+            {(['channels', 'chat', 'threads'] as const).map((panel) => (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => setActivePanel(panel)}
+                className={clsx(
+                  'flex-1 pt-[6px] pb-[5px] rounded-[6px] transition-all',
+                  activePanel === panel && 'text-textItemFocused bg-boxFocused'
+                )}
+              >
+                {panel === 'channels'
+                  ? 'Channels'
+                  : panel === 'chat'
+                  ? 'Chat'
+                  : 'Threads'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col lg:flex-row gap-[1px]">
+          <AgentList
+            onChange={setProperties}
+            className={clsx(
+              activePanel === 'channels' ? 'flex' : 'hidden',
+              'lg:flex lg:flex-none'
+            )}
+          />
+          <div
+            className={clsx(
+              'bg-newBgColorInner flex flex-1',
+              activePanel === 'chat' ? 'flex' : 'hidden',
+              'lg:flex'
+            )}
+          >
+            {children}
+          </div>
+          <Threads
+            className={clsx(
+              activePanel === 'threads' ? 'flex' : 'hidden',
+              'lg:flex lg:flex-none'
+            )}
+          />
+        </div>
+      </div>
     </PropertiesContext.Provider>
   );
 };
 
-const Threads: FC = () => {
+const Threads: FC<{ className?: string }> = ({ className }) => {
   const fetch = useFetch();
   const router = useRouter();
   const pathname = usePathname();
@@ -221,7 +272,8 @@ const Threads: FC = () => {
     <div
       className={clsx(
         'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all relative',
-        'w-[260px]'
+        'w-full lg:w-[260px]',
+        className
       )}
     >
       <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">

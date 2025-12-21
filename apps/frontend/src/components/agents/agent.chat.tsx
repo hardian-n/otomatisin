@@ -133,7 +133,7 @@ const Message: FC<UserMessageProps> = (props) => {
   }, [props.message?.content]);
   return (
     <div
-      className="copilotKitMessage copilotKitUserMessage min-w-[300px]"
+      className="copilotKitMessage copilotKitUserMessage min-w-[200px] sm:min-w-[300px]"
       dangerouslySetInnerHTML={{ __html: convertContentToImagesAndVideo }}
     />
   );

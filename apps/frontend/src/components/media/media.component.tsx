@@ -338,12 +338,12 @@ export const MediaBox: FC<{
       {...(props.standalone
         ? {
             className:
-              'bg-newBgColorInner p-[20px] flex flex-col gap-[15px] transition-all',
+              'bg-newBgColorInner p-[12px] lg:p-[20px] flex flex-col gap-[15px] transition-all',
           }
         : {
             ref: refNew,
             className:
-              'removeEditor fixed start-0 top-0 bg-primary/80 z-[300] w-full min-h-full p-4 md:p-[60px] animate-fade',
+              'removeEditor fixed start-0 top-0 bg-primary/80 z-[300] w-full min-h-full p-3 sm:p-4 md:p-[60px] animate-fade',
           })}
     >
       <div
@@ -351,11 +351,11 @@ export const MediaBox: FC<{
           ? {}
           : {
               className:
-                'max-w-[1000px] w-full h-full bg-newBgColorInner border-tableBorder border-2 rounded-xl relative mx-auto',
+                'max-w-[1000px] w-full h-full max-h-[90vh] bg-newBgColorInner border-tableBorder border-2 rounded-xl relative mx-auto overflow-y-auto',
             })}
       >
         <DropFiles onDrop={dragAndDrop}>
-          <div className="pb-[20px] px-[20px] w-full h-full">
+          <div className="pb-[16px] lg:pb-[20px] px-[12px] lg:px-[20px] w-full h-full">
             <div className="flex flex-col">
               <div className="flex-1">
                 {!props.standalone ? (
@@ -389,7 +389,7 @@ export const MediaBox: FC<{
                 <div />
               )}
 
-              <div className="absolute flex justify-center mt-[55px] items-center pointer-events-none text-center h-[57px] w-full start-0 rounded-lg transition-all group text-sm font-semibold bg-transparent text-gray-800 hover:bg-gray-100 focus:text-primary-500">
+              <div className="absolute flex justify-center mt-[45px] sm:mt-[55px] items-center pointer-events-none text-center h-[48px] sm:h-[57px] w-full start-0 rounded-lg transition-all group text-[12px] sm:text-sm font-semibold bg-transparent text-gray-800 hover:bg-gray-100 focus:text-primary-500">
                 {t(
                   'select_or_upload_pictures_maximum_5_at_a_time',
                   'Select or upload pictures (maximum 5 at a time)'
@@ -403,7 +403,7 @@ export const MediaBox: FC<{
 
               {!!mediaList.length && (
                 <>
-                  <div className="flex absolute h-[57px] w-full start-0 top-0 rounded-lg transition-all group text-sm font-semibold bg-transparent text-gray-800 hover:bg-gray-100 focus:text-primary-500">
+                  <div className="flex absolute h-[48px] sm:h-[57px] w-full start-0 top-0 rounded-lg transition-all group text-sm font-semibold bg-transparent text-gray-800 hover:bg-gray-100 focus:text-primary-500">
                     <div className="relative flex flex-1 pe-[55px] gap-2 items-center justify-center">
                       <div className="flex-1" />
                       <MultipartFileUploader
@@ -424,7 +424,7 @@ export const MediaBox: FC<{
             </div>
             <div
               className={clsx(
-                'flex flex-wrap gap-[10px] mt-[35px] pt-[20px]',
+                'flex flex-wrap gap-[10px] mt-[24px] sm:mt-[35px] pt-[12px] sm:pt-[20px]',
                 !!mediaList.length &&
                   'justify-center items-center text-textColor'
               )}
@@ -485,7 +485,7 @@ export const MediaBox: FC<{
                   <div
                     key={media.id}
                     className={clsx(
-                      'w-[120px] h-[120px] flex select-none relative cursor-pointer',
+                      'w-[96px] h-[96px] sm:w-[120px] sm:h-[120px] flex select-none relative cursor-pointer',
                       selectedMedia.find((p) => p.id === media.id)
                         ? 'border-4 border-forth'
                         : 'border-tableBorder border-2'
