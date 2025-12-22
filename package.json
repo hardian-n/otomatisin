@@ -30,7 +30,7 @@
     "start:prod:frontend": "pnpm --filter ./apps/frontend run start",
     "start:prod:workers": "pnpm --filter ./apps/workers run start",
     "start:prod:cron": "pnpm --filter ./apps/cron run start",
-    "dev:docker": "docker compose -f ./docker-compose.dev.yaml up -d",
+    "dev:docker": "docker compose -p otomatisin_dev -f ./docker-compose.dev.yml up -d",
     "commands:build:development": "pnpm --filter ./apps/commands run build",
     "workers": "rm -rf dist/workers && pnpm --filter ./apps/workers run dev",
     "cron": "rm -rf dist/cron && pnpm --filter ./apps/cron run dev",
