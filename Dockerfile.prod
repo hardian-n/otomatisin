@@ -11,12 +11,11 @@ RUN corepack enable && corepack prepare pnpm@10.6.1 --activate
 
 COPY . .
 
-# Install hanya yang dibutuhkan oleh apps/frontend + dependency workspace-nya
 RUN --mount=type=cache,target=/pnpm-store \
     --mount=type=cache,target=/root/.cache \
-    pnpm install --frozen-lockfile --filter "./apps/frontend..." \
- && NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter "./apps/frontend..." run build \
- && pnpm install --prod --frozen-lockfile --filter "./apps/frontend..." \
+    pnpm install --frozen-lockfile \
+ && NODE_OPTIONS="--max-old-space-size=4096" pnpm run build \
+ && pnpm install --prod --frozen-lockfile \
  && pnpm store prune \
  && rm -rf /root/.npm /tmp/*
 
