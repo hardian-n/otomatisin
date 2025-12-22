@@ -46,6 +46,7 @@ services:
       - ./.env.backend:/app/.env:ro
     networks:
       - otomatisin-network
+      - postiz-network
     depends_on:
       otomatisin-postgres:
         condition: service_healthy
@@ -61,4 +62,7 @@ volumes:
 networks:
   otomatisin-network:
     name: otomatisin-network
-    driver: bridge
+    external: true
+  postiz-network:
+    name: postiz-network
+    external: true
