@@ -32,6 +32,9 @@ services:
       retries: 10
 
   otomatisin-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     image: otomatisin-backend:local
     container_name: otomatisin-backend
     restart: unless-stopped
