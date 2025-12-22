@@ -18,6 +18,7 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
   identifier = 'threads';
   name = 'Threads';
   isBetweenSteps = false;
+  frontendUrl?: string;
   scopes = [
     'threads_basic',
     'threads_content_publish',
@@ -56,15 +57,16 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
 
   async generateAuthUrl() {
     const state = makeId(6);
+    const frontendUrl = this.frontendUrl || process?.env.FRONTEND_URL;
     return {
       url:
         'https://www.threads.net/oauth/authorize' +
         `?client_id=${process.env.THREADS_APP_ID}` +
         `&redirect_uri=${encodeURIComponent(
           `${
-            process?.env.FRONTEND_URL?.indexOf('https') == -1
-              ? `https://redirectmeto.com/${process?.env.FRONTEND_URL}`
-              : `${process?.env.FRONTEND_URL}`
+            frontendUrl?.indexOf('https') == -1
+              ? `https://redirectmeto.com/${frontendUrl}`
+              : `${frontendUrl}`
           }/integrations/social/threads`
         )}` +
         `&state=${state}` +
@@ -79,15 +81,16 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     codeVerifier: string;
     refresh?: string;
   }) {
+    const frontendUrl = this.frontendUrl || process?.env.FRONTEND_URL;
     const getAccessToken = await (
       await this.fetch(
         'https://graph.threads.net/oauth/access_token' +
           `?client_id=${process.env.THREADS_APP_ID}` +
           `&redirect_uri=${encodeURIComponent(
             `${
-              process?.env.FRONTEND_URL?.indexOf('https') == -1
-                ? `https://redirectmeto.com/${process?.env.FRONTEND_URL}`
-                : `${process?.env.FRONTEND_URL}`
+              frontendUrl?.indexOf('https') == -1
+                ? `https://redirectmeto.com/${frontendUrl}`
+                : `${frontendUrl}`
             }/integrations/social/threads`
           )}` +
           `&grant_type=authorization_code` +
