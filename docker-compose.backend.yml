@@ -42,6 +42,8 @@ services:
       - "127.0.0.1:3333:3000"
     env_file:
       - .env.backend
+    volumes:
+      - ./.env.backend:/app/.env:ro
     networks:
       - otomatisin-network
     depends_on:
