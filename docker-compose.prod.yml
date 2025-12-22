@@ -33,12 +33,6 @@ services:
     networks:
       - postiz-network
 
-    depends_on:
-      postiz-postgres:
-        condition: service_healthy
-      postiz-redis:
-        condition: service_healthy
-
 networks:
   postiz-network:
     external: true
