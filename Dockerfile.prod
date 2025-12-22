@@ -26,6 +26,10 @@ FROM node:22.20-alpine
 ENV NODE_ENV=production
 
 RUN apk add --no-cache bash nginx
+# user nginx + www (sesuai nginx.conf)
+RUN adduser -D -g 'www' www \
+  && mkdir -p /www \
+  && chown -R www:www /var/lib/nginx /www
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@10.6.1 --activate
