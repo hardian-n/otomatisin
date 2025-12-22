@@ -1,5 +1,8 @@
 services:
   postiz:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
     image: otomatisin/postiz:prod
     container_name: postiz-prod
     restart: unless-stopped
