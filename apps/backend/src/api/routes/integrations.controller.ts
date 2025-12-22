@@ -8,8 +8,10 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseFilters,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { ConnectIntegrationDto } from '@gitroom/nestjs-libraries/dtos/integrations/connect.integration.dto';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
@@ -49,6 +51,37 @@ export class IntegrationsController {
     private _postService: PostsService,
     private _refreshIntegrationService: RefreshIntegrationService
   ) {}
+
+  private resolveFrontendUrl(req: Request) {
+    const candidates: string[] = [];
+    const origin = req.headers.origin;
+    if (typeof origin === 'string' && origin.length) {
+      candidates.push(origin);
+    }
+
+    const referer = req.headers.referer;
+    if (typeof referer === 'string' && referer.length) {
+      try {
+        candidates.push(new URL(referer).origin);
+      } catch {
+        // ignore invalid referrer
+      }
+    }
+
+    const allowed = new Set(
+      [
+        process.env.FRONTEND_URL,
+        process.env.MAIN_URL,
+        ...(process.env.ADDITIONAL_CORS_ORIGINS
+          ? process.env.ADDITIONAL_CORS_ORIGINS.split(',')
+          : []),
+      ]
+        .map((url) => url?.trim())
+        .filter((url): url is string => !!url)
+    );
+
+    return candidates.find((candidate) => allowed.has(candidate));
+  }
   @Get('/')
   getIntegrations() {
     return this._integrationManager.getAllIntegrations();
@@ -195,7 +228,8 @@ export class IntegrationsController {
   async getIntegrationUrl(
     @Param('integration') integration: string,
     @Query('refresh') refresh: string,
-    @Query('externalUrl') externalUrl: string
+    @Query('externalUrl') externalUrl: string,
+    @Req() req: Request
   ) {
     if (
       !this._integrationManager
@@ -207,6 +241,11 @@ export class IntegrationsController {
 
     const integrationProvider =
       this._integrationManager.getSocialIntegration(integration);
+    const frontendUrl = this.resolveFrontendUrl(req);
+    if (frontendUrl) {
+      // @ts-expect-error dynamic override per request
+      integrationProvider.frontendUrl = frontendUrl;
+    }
 
     if (integrationProvider.externalUrl && !externalUrl) {
       throw new Error('Missing external url');
@@ -225,6 +264,12 @@ export class IntegrationsController {
 
       if (refresh) {
         await ioRedis.set(`refresh:${state}`, refresh, 'EX', 300);
+      }
+
+      if (frontendUrl) {
+        await ioRedis.set(`frontend:${state}`, frontendUrl, 'EX', 300);
+        // @ts-expect-error dynamic override per request
+        integrationProvider.frontendUrl = undefined;
       }
 
       await ioRedis.set(`login:${state}`, codeVerifier, 'EX', 300);
@@ -385,6 +430,13 @@ export class IntegrationsController {
     const integrationProvider =
       this._integrationManager.getSocialIntegration(integration);
 
+    const frontendUrl = await ioRedis.get(`frontend:${body.state}`);
+    if (frontendUrl) {
+      // @ts-expect-error dynamic override per request
+      integrationProvider.frontendUrl = frontendUrl;
+      await ioRedis.del(`frontend:${body.state}`);
+    }
+
     const getCodeVerifier = integrationProvider.customFields
       ? 'none'
       : await ioRedis.get(`login:${body.state}`);
@@ -431,6 +483,10 @@ export class IntegrationsController {
       );
 
       if (typeof auth === 'string') {
+        if (frontendUrl) {
+          // @ts-expect-error dynamic override per request
+          integrationProvider.frontendUrl = undefined;
+        }
         return res({
           error: auth,
           accessToken: '',
@@ -448,9 +504,17 @@ export class IntegrationsController {
           refresh,
           auth.accessToken
         );
+        if (frontendUrl) {
+          // @ts-expect-error dynamic override per request
+          integrationProvider.frontendUrl = undefined;
+        }
         return res({ ...newAuth, refreshToken: body.refresh });
       }
 
+      if (frontendUrl) {
+        // @ts-expect-error dynamic override per request
+        integrationProvider.frontendUrl = undefined;
+      }
       return res(auth);
     });
 
