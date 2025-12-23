@@ -145,6 +145,95 @@ export class AutoreplyService {
     return !recent;
   }
 
+  private async alreadyHandledMessage(
+    ruleId: string,
+    messageId?: string | null
+  ): Promise<boolean> {
+    if (!messageId) {
+      return false;
+    }
+
+    const existing = await this.prisma.autoreplyLog.findFirst({
+      where: {
+        ruleId,
+        messageId,
+      },
+      select: { id: true },
+    });
+
+    return !!existing;
+  }
+
+  private async sendThreadsReply(input: {
+    integrationId?: string | null;
+    replyToMessageId?: string | null;
+    replyText: string;
+  }) {
+    if (!input.integrationId) {
+      throw new Error('Threads reply requires integrationId');
+    }
+    if (!input.replyToMessageId) {
+      throw new Error('Threads reply requires replyToMessageId');
+    }
+
+    const integration = await this.prisma.integration.findFirst({
+      where: {
+        id: input.integrationId,
+        providerIdentifier: 'threads',
+        deletedAt: null,
+      },
+      select: {
+        internalId: true,
+        token: true,
+      },
+    });
+
+    if (!integration?.internalId || !integration?.token) {
+      throw new Error('Threads integration is missing token or internalId');
+    }
+
+    const form = new FormData();
+    form.append('media_type', 'TEXT');
+    form.append('text', input.replyText);
+    form.append('reply_to_id', input.replyToMessageId);
+    form.append('access_token', integration.token);
+
+    const createRes = await fetch(
+      `https://graph.threads.net/v1.0/${integration.internalId}/threads`,
+      {
+        method: 'POST',
+        body: form,
+      }
+    );
+
+    if (!createRes.ok) {
+      const errorText = await createRes.text();
+      throw new Error(
+        `Threads reply create failed: ${createRes.status} ${errorText}`
+      );
+    }
+
+    const created = await createRes.json();
+    const creationId = created?.id;
+    if (!creationId) {
+      throw new Error('Threads reply create failed: missing id');
+    }
+
+    const publishRes = await fetch(
+      `https://graph.threads.net/v1.0/${integration.internalId}/threads_publish?creation_id=${creationId}&access_token=${integration.token}`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (!publishRes.ok) {
+      const errorText = await publishRes.text();
+      throw new Error(
+        `Threads reply publish failed: ${publishRes.status} ${errorText}`
+      );
+    }
+  }
+
   async matchRules(input: EvaluateInput) {
     const candidates = await this.prisma.autoreplyRule.findMany({
       where: {
@@ -193,6 +282,14 @@ export class AutoreplyService {
     const replies = [];
 
     for (const rule of matchedRules) {
+      const alreadyHandled = await this.alreadyHandledMessage(
+        rule.id,
+        input.messageId
+      );
+      if (alreadyHandled) {
+        continue;
+      }
+
       // Create log first (optimistic)
       const log = await this.prisma.autoreplyLog.create({
         data: {
@@ -216,6 +313,16 @@ export class AutoreplyService {
 
       const send = async () => {
         try {
+          const channel = input.channel?.toLowerCase();
+          if (channel === 'threads' || channel === 'thread') {
+            await this.sendThreadsReply({
+              integrationId: input.integrationId ?? rule.integrationId ?? null,
+              replyToMessageId: input.messageId,
+              replyText: rule.replyText,
+            });
+            return;
+          }
+
           const adapter = getChannelAdapter(input.channel);
           await adapter.sendReply({
             channel: input.channel,

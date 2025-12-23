@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
 import { PostsRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.repository';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import { AutoreplyService } from '@gitroom/backend/services/autoreply/autoreply.service';
 
 type ThreadsReply = {
   id: string;
@@ -17,7 +18,8 @@ export class ThreadsInboxService {
   constructor(
     private _integrationRepository: IntegrationRepository,
     private _postsRepository: PostsRepository,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _autoreplyService: AutoreplyService
   ) {}
 
   listChannels(orgId: string) {
@@ -83,6 +85,15 @@ export class ThreadsInboxService {
         accessToken,
         safeReplyLimit
       );
+
+      await this.processAutoreplies({
+        orgId,
+        integrationId: integration.id,
+        integrationProfile: integration.profile,
+        threadId: post.releaseId,
+        replies,
+      });
+
       postsWithReplies.push({
         id: post.id,
         content: post.content,
@@ -105,6 +116,42 @@ export class ThreadsInboxService {
       posts: postsWithReplies,
       lastSync: new Date().toISOString(),
     };
+  }
+
+  private async processAutoreplies(input: {
+    orgId: string;
+    integrationId: string;
+    integrationProfile?: string | null;
+    threadId: string;
+    replies: ThreadsReply[];
+  }) {
+    for (const reply of input.replies) {
+      if (!reply?.id || !reply?.text) {
+        continue;
+      }
+      if (
+        input.integrationProfile &&
+        reply.username &&
+        reply.username === input.integrationProfile
+      ) {
+        continue;
+      }
+
+      try {
+        await this._autoreplyService.evaluate({
+          orgId: input.orgId,
+          channel: 'threads',
+          integrationId: input.integrationId,
+          channelTargetId: input.threadId,
+          text: reply.text,
+          authorId: reply.username || null,
+          messageId: reply.id,
+          multiReply: false,
+        });
+      } catch {
+        // Ignore autoreply failures to avoid breaking inbox listing.
+      }
+    }
   }
 
   private async fetchReplies(
