@@ -478,6 +478,30 @@ export class IntegrationRepository {
     });
   }
 
+  getAllIntegrationsByProvider(providerIdentifier: string) {
+    return this._integration.model.integration.findMany({
+      where: {
+        providerIdentifier,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        name: true,
+        providerIdentifier: true,
+        picture: true,
+        profile: true,
+        disabled: true,
+        inBetweenSteps: true,
+        refreshNeeded: true,
+        type: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   async disableChannel(org: string, id: string) {
     await this._integration.model.integration.update({
       where: {

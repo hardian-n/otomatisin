@@ -39,6 +39,8 @@ import { AutoreplyTestController } from '@gitroom/backend/api/routes/autoreply.t
 import { AutoreplyService } from '@gitroom/backend/services/autoreply/autoreply.service';
 import { InboxController } from '@gitroom/backend/api/routes/inbox.controller';
 import { ThreadsInboxService } from '@gitroom/backend/services/inbox/threads.inbox.service';
+import { InboxPollSchedulerService } from '@gitroom/backend/services/inbox/inbox.poll.scheduler';
+import { InboxPollingService } from '@gitroom/backend/services/inbox/inbox.polling.service';
 
 const authenticatedController = [
   UsersController,
@@ -87,6 +89,8 @@ const authenticatedController = [
     Nowpayments,
     AutoreplyService,
     ThreadsInboxService,
+    InboxPollingService,
+    InboxPollSchedulerService,
   ],
   get exports() {
     return [...this.imports, ...this.providers];

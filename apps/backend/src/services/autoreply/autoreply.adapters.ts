@@ -63,6 +63,7 @@ class TelegramAdapter implements ChannelReplyAdapter {
 
 export const getChannelAdapter = (channel: string): ChannelReplyAdapter => {
   switch (channel) {
+    case 'threads':
     case 'thread':
       return new ThreadAdapter();
     case 'telegram':
