@@ -2,7 +2,7 @@ import { IUploadProvider } from './upload.interface';
 import { mkdirSync, unlink, writeFileSync } from 'fs';
 // @ts-ignore
 import mime from 'mime';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import axios from 'axios';
 
 export class LocalStorage implements IUploadProvider {
@@ -76,8 +76,30 @@ export class LocalStorage implements IUploadProvider {
   async removeFile(filePath: string): Promise<void> {
     // Logic to remove the file from the filesystem goes here
     return new Promise((resolve, reject) => {
-      unlink(filePath, (err) => {
+      if (!filePath) {
+        resolve();
+        return;
+      }
+
+      let resolvedPath = filePath;
+      const frontendUrl = process.env.FRONTEND_URL;
+      if (frontendUrl) {
+        const baseUrl = `${frontendUrl.replace(/\/+$/, '')}/uploads`;
+        if (filePath.startsWith(baseUrl)) {
+          let relative = filePath.slice(baseUrl.length);
+          if (relative.startsWith('/')) {
+            relative = relative.slice(1);
+          }
+          resolvedPath = join(this.uploadDirectory, relative);
+        }
+      }
+
+      unlink(resolvedPath, (err) => {
         if (err) {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+            resolve();
+            return;
+          }
           reject(err);
         } else {
           resolve();

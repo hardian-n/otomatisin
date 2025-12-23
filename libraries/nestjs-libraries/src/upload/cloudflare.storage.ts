@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import 'multer';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import mime from 'mime-types';
@@ -114,12 +118,33 @@ class CloudflareStorage implements IUploadProvider {
 
   // Implement the removeFile method from IUploadProvider
   async removeFile(filePath: string): Promise<void> {
-    // const fileName = filePath.split('/').pop(); // Extract the filename from the path
-    // const command = new DeleteObjectCommand({
-    //   Bucket: this._bucketName,
-    //   Key: fileName,
-    // });
-    // await this._client.send(command);
+    const key = this.resolveKey(filePath);
+    if (!key) {
+      return;
+    }
+
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: this._bucketName,
+        Key: key,
+      });
+      await this._client.send(command);
+    } catch (err) {
+      console.warn('Error removing file from Cloudflare R2:', err);
+    }
+  }
+
+  private resolveKey(filePath: string): string | null {
+    if (!filePath) {
+      return null;
+    }
+
+    try {
+      const url = new URL(filePath);
+      return url.pathname.replace(/^\/+/, '') || null;
+    } catch {
+      return filePath.replace(/^\/+/, '') || null;
+    }
   }
 }
 

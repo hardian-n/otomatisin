@@ -259,6 +259,31 @@ export class IntegrationService {
   }
 
   async deleteChannel(org: string, id: string) {
+    const integration = await this._integrationRepository.getIntegrationById(
+      org,
+      id
+    );
+    if (integration?.picture) {
+      const bucketBase = process.env.CLOUDFLARE_BUCKET_URL?.replace(
+        /\/+$/,
+        ''
+      );
+      const localBase = process.env.FRONTEND_URL
+        ? `${process.env.FRONTEND_URL.replace(/\/+$/, '')}/uploads`
+        : undefined;
+      const shouldDelete =
+        (!!bucketBase && integration.picture.startsWith(bucketBase)) ||
+        (!!localBase && integration.picture.startsWith(localBase));
+
+      if (shouldDelete) {
+        try {
+          await this.storage.removeFile(integration.picture);
+        } catch (err) {
+          console.warn('Failed to remove integration picture:', err);
+        }
+      }
+    }
+
     return this._integrationRepository.deleteChannel(org, id);
   }
 
