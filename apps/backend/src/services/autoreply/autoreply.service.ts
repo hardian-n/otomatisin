@@ -219,6 +219,8 @@ export class AutoreplyService {
       throw new Error('Threads reply create failed: missing id');
     }
 
+    await this.waitThreadsContainerReady(creationId, integration.token);
+
     const publishRes = await fetch(
       `https://graph.threads.net/v1.0/${integration.internalId}/threads_publish?creation_id=${creationId}&access_token=${integration.token}`,
       {
@@ -232,6 +234,44 @@ export class AutoreplyService {
         `Threads reply publish failed: ${publishRes.status} ${errorText}`
       );
     }
+  }
+
+  private async waitThreadsContainerReady(
+    creationId: string,
+    accessToken: string
+  ) {
+    const maxAttempts = 6;
+    const delayMs = 1500;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const res = await fetch(
+        `https://graph.threads.net/v1.0/${creationId}?fields=status,error_message&access_token=${accessToken}`
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(
+          `Threads reply status failed: ${res.status} ${errorText}`
+        );
+      }
+
+      const payload = await res.json();
+      const status = payload?.status;
+      if (status === 'FINISHED') {
+        return;
+      }
+      if (status === 'ERROR') {
+        const message =
+          typeof payload?.error_message === 'string'
+            ? payload.error_message
+            : 'unknown error';
+        throw new Error(`Threads reply status error: ${message}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    throw new Error('Threads reply status timeout');
   }
 
   async matchRules(input: EvaluateInput) {
