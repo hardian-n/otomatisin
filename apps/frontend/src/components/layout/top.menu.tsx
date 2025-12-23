@@ -42,6 +42,33 @@ export const useMenuItem = () => {
       path: '/launches',
     },
     {
+      name: t('inbox', 'Inbox'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M4 4H20V13C20 13.5523 19.5523 14 19 14H15L13 17H11L9 14H5C4.44772 14 4 13.5523 4 13V4Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M7 20H17"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      ),
+      path: '/inbox',
+    },
+    {
       name: 'Agent',
       icon: (
         <svg

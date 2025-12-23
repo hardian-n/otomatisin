@@ -105,6 +105,37 @@ export class PostsRepository {
     });
   }
 
+  getPublishedPostsByIntegration(
+    orgId: string,
+    integrationId: string,
+    limit = 10
+  ) {
+    return this._post.model.post.findMany({
+      where: {
+        organizationId: orgId,
+        integrationId,
+        deletedAt: null,
+        parentPostId: null,
+        state: 'PUBLISHED',
+        releaseId: {
+          not: null,
+        },
+      },
+      orderBy: {
+        publishDate: 'desc',
+      },
+      take: limit,
+      select: {
+        id: true,
+        content: true,
+        publishDate: true,
+        releaseId: true,
+        releaseURL: true,
+        image: true,
+      },
+    });
+  }
+
   updateImages(id: string, images: string) {
     return this._post.model.post.update({
       where: {

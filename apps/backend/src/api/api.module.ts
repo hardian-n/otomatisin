@@ -37,6 +37,8 @@ import { MonitorController } from '@gitroom/backend/api/routes/monitor.controlle
 import { AutoreplyController } from '@gitroom/backend/api/routes/autoreply.controller';
 import { AutoreplyTestController } from '@gitroom/backend/api/routes/autoreply.test.controller';
 import { AutoreplyService } from '@gitroom/backend/services/autoreply/autoreply.service';
+import { InboxController } from '@gitroom/backend/api/routes/inbox.controller';
+import { ThreadsInboxService } from '@gitroom/backend/services/inbox/threads.inbox.service';
 
 const authenticatedController = [
   UsersController,
@@ -57,6 +59,7 @@ const authenticatedController = [
   SetsController,
   ThirdPartyController,
   AutoreplyController,
+  InboxController,
 ];
 @Module({
   imports: [UploadModule],
@@ -83,6 +86,7 @@ const authenticatedController = [
     ShortLinkService,
     Nowpayments,
     AutoreplyService,
+    ThreadsInboxService,
   ],
   get exports() {
     return [...this.imports, ...this.providers];
