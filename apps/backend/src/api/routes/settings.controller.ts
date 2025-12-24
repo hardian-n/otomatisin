@@ -7,13 +7,16 @@ import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/o
 import { AddTeamMemberDto } from '@gitroom/nestjs-libraries/dtos/settings/add.team.member.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
+import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.service';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
 
 @ApiTags('Settings')
 @Controller('/settings')
 export class SettingsController {
   constructor(
     private _starsService: StarsService,
-    private _organizationService: OrganizationService
+    private _organizationService: OrganizationService,
+    private _thirdPartyService: ThirdPartyService
   ) {}
 
   @Get('/github')
@@ -132,5 +135,48 @@ export class SettingsController {
     @Param('id') id: string
   ) {
     return this._organizationService.deleteTeamMember(org, id);
+  }
+
+  @Get('/telegram')
+  async getTelegramSettings(@GetOrgFromRequest() org: Organization) {
+    const existing = await this._thirdPartyService.getIntegrationByIdentifier(
+      org.id,
+      'telegram_bot'
+    );
+    if (!existing) {
+      return { botName: '', botToken: '' };
+    }
+
+    return {
+      botName: existing.name || '',
+      botToken: existing.apiKey
+        ? AuthService.fixedDecryption(existing.apiKey)
+        : '',
+    };
+  }
+
+  @Post('/telegram')
+  async saveTelegramSettings(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: { botName?: string; botToken?: string }
+  ) {
+    const botName = (body.botName || '').trim();
+    const botToken = (body.botToken || '').trim();
+    if (!botName || !botToken) {
+      throw new Error('Telegram bot name and token are required');
+    }
+
+    await this._thirdPartyService.saveIntegration(
+      org.id,
+      'telegram_bot',
+      botToken,
+      {
+        name: botName,
+        username: botName,
+        id: 'telegram_bot',
+      }
+    );
+
+    return { ok: true };
   }
 }

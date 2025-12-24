@@ -14,6 +14,10 @@ import copy from 'copy-to-clipboard';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+type TelegramSettingsPayload = {
+  botName?: string;
+  botToken?: string;
+};
 export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
   const { onComplete, nonce } = props;
   const { telegramBotName } = useVariables();
@@ -22,11 +26,11 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
   const word = useRef(makeId(4));
   const stop = useRef(false);
   const [step, setStep] = useState(false);
-  const [botName, setBotName] = useState(telegramBotName || '');
+  const [botName, setBotName] = useState('');
   const [botToken, setBotToken] = useState('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const toaster = useToaster();
-  async function* load() {
-    const token = botToken.trim();
+  async function* load(token: string) {
     let id = '';
     while (true) {
       const data = await (
@@ -47,16 +51,56 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
   }
   const t = useT();
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadSettings = async () => {
+      try {
+        const data = (await (await fetch('/settings/telegram')).json()) as
+          | TelegramSettingsPayload
+          | undefined;
+        if (!isMounted) {
+          return;
+        }
+        setBotName((data?.botName || telegramBotName || '').trim());
+        setBotToken((data?.botToken || '').trim());
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+        setBotName((telegramBotName || '').trim());
+        setBotToken('');
+      } finally {
+        if (isMounted) {
+          setSettingsLoaded(true);
+        }
+      }
+    };
+    loadSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetch, telegramBotName]);
+
   const loadAll = async () => {
     const normalizedName = botName.trim().replace(/^@/, '');
     const token = botToken.trim();
-    if (!normalizedName || !token) {
-      toaster.show('Please enter bot name and token', 'warning');
+    if (!settingsLoaded) {
+      toaster.show('Loading Telegram settings', 'warning');
+      return;
+    }
+    if (!token) {
+      toaster.show(
+        t(
+          'telegram_settings_missing',
+          'Set your Telegram bot token in Settings > Telegram'
+        ),
+        'warning'
+      );
       return;
     }
     stop.current = false;
     setStep(true);
-    const generator = load();
+    const generator = load(token);
     for await (const data of generator) {
       if (stop.current) {
         return;
@@ -112,23 +156,6 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
         </svg>
       </button>
       <div className="justify-center items-center flex flex-col pt-[16px]">
-        <div className="w-full flex flex-col gap-[10px] pb-[10px]">
-          <Input
-            label="Telegram Bot Name"
-            name="botName"
-            placeholder="@your_bot"
-            value={botName}
-            onChange={(e: any) => setBotName(e.target.value)}
-          />
-          <Input
-            label="Telegram Bot Token"
-            name="botToken"
-            placeholder="123456:ABCDEF..."
-            type="password"
-            value={botToken}
-            onChange={(e: any) => setBotToken(e.target.value)}
-          />
-        </div>
         <div>
           {t('please_add', 'Please add')}{' '}
           <strong>

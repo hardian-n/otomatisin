@@ -17,6 +17,13 @@ export class ThirdPartyService {
     return this._thirdPartyRepository.getIntegrationById(org, id);
   }
 
+  getIntegrationByIdentifier(org: string, identifier: string) {
+    return this._thirdPartyRepository.getIntegrationByIdentifier(
+      org,
+      identifier
+    );
+  }
+
   saveIntegration(
     org: string,
     identifier: string,

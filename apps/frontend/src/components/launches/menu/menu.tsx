@@ -290,7 +290,6 @@ export const Menu: FC<{
     if (!findIntegration) {
       return;
     }
-    const refreshId = findIntegration.internalId;
     modal.openModal({
       title: 'Custom URL',
       withCloseButton: false,
@@ -301,12 +300,7 @@ export const Menu: FC<{
         <CustomVariables
           identifier={findIntegration.identifier}
           gotoUrl={(url: string) => {
-            const shouldAppendRefresh =
-              findIntegration.identifier === 'telegram' && refreshId;
-            const nextUrl = shouldAppendRefresh
-              ? `${url}&refresh=${encodeURIComponent(refreshId)}`
-              : url;
-            router.push(nextUrl);
+            router.push(url);
           }}
           variables={findIntegration.customFields}
         />
@@ -421,7 +415,8 @@ export const Menu: FC<{
                 </div>
               </div>
             )}
-          {!!findIntegration?.isCustomFields && (
+          {!!findIntegration?.isCustomFields &&
+            findIntegration?.identifier !== 'telegram' && (
             <div
               className="flex gap-[12px] items-center py-[8px] px-[10px]"
               onClick={updateCredentials}
