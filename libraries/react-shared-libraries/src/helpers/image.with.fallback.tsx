@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from 'react';
 import Image from 'next/image';
 interface ImageSrc {
-  src: string;
+  src?: string | null;
   fallbackSrc: string;
   width: number;
   height: number;
@@ -9,17 +9,19 @@ interface ImageSrc {
 }
 const ImageWithFallback: FC<ImageSrc> = (props) => {
   const { src, fallbackSrc, ...rest } = props;
-  const [imgSrc, setImgSrc] = useState(src);
+  const normalizedSrc = src || fallbackSrc;
+  const [imgSrc, setImgSrc] = useState(normalizedSrc);
   useEffect(() => {
-    if (src !== imgSrc) {
-      setImgSrc(src);
+    const nextSrc = src || fallbackSrc;
+    if (nextSrc !== imgSrc) {
+      setImgSrc(nextSrc);
     }
-  }, [src]);
+  }, [src, fallbackSrc, imgSrc]);
   return (
     <Image
       alt=""
       {...rest}
-      src={imgSrc}
+      src={imgSrc || fallbackSrc}
       onError={() => {
         setImgSrc(fallbackSrc);
       }}
