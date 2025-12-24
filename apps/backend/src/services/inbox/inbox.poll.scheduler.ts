@@ -31,7 +31,7 @@ export class InboxPollSchedulerService implements OnModuleInit {
       30
     );
     const mode = (process.env.INBOX_POLL_MODE || 'inline').toLowerCase();
-    const providers = (process.env.INBOX_POLL_PROVIDERS || 'threads')
+    const providers = (process.env.INBOX_POLL_PROVIDERS || 'threads,telegram')
       .split(',')
       .map((p) => p.trim())
       .filter(Boolean);

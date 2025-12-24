@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
 import { ThreadsInboxService } from '@gitroom/backend/services/inbox/threads.inbox.service';
+import { TelegramInboxService } from '@gitroom/backend/services/inbox/telegram.inbox.service';
 
 type InboxPollPayload = {
   providers?: string[];
@@ -14,13 +15,14 @@ export class InboxPollingService {
 
   constructor(
     private readonly _integrationRepository: IntegrationRepository,
-    private readonly _threadsInboxService: ThreadsInboxService
+    private readonly _threadsInboxService: ThreadsInboxService,
+    private readonly _telegramInboxService: TelegramInboxService
   ) {}
 
   async poll(payload?: InboxPollPayload) {
     const providers = (payload?.providers?.length
       ? payload.providers
-      : ['threads']
+      : ['threads', 'telegram']
     )
       .map((p) => p.toLowerCase().trim())
       .filter(Boolean);
@@ -49,6 +51,9 @@ export class InboxPollingService {
       switch (provider) {
         case 'threads':
           await this.pollThreads(postLimit, replyLimit, delayMs);
+          break;
+        case 'telegram':
+          await this.pollTelegram(replyLimit, delayMs);
           break;
         default:
           this.logger.debug(`Inbox polling not implemented for ${provider}`);
@@ -95,6 +100,39 @@ export class InboxPollingService {
     }
   }
 
+  private async pollTelegram(replyLimit: number, delayMs: number) {
+    const integrations =
+      await this._integrationRepository.getAllIntegrationsByProvider('telegram');
+
+    for (const integration of integrations) {
+      if (
+        integration.disabled ||
+        integration.inBetweenSteps ||
+        integration.refreshNeeded
+      ) {
+        continue;
+      }
+
+      try {
+        await this._telegramInboxService.getMessages(
+          integration.organizationId,
+          integration.id,
+          replyLimit
+        );
+      } catch (err: any) {
+        const message =
+          typeof err?.message === 'string' ? err.message : 'poll failed';
+        this.logger.warn(
+          `Telegram inbox poll failed for ${integration.id}: ${message}`
+        );
+      }
+
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
   private parseNumber(value: string | undefined) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
@@ -115,4 +153,3 @@ export class InboxPollingService {
     return Math.max(min, Math.min(max, value as number));
   }
 }
-

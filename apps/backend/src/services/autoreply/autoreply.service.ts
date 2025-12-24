@@ -147,7 +147,8 @@ export class AutoreplyService {
 
   private async alreadyHandledMessage(
     ruleId: string,
-    messageId?: string | null
+    messageId?: string | null,
+    channelTargetId?: string | null
   ): Promise<boolean> {
     if (!messageId) {
       return false;
@@ -157,6 +158,7 @@ export class AutoreplyService {
       where: {
         ruleId,
         messageId,
+        ...(channelTargetId ? { channelTargetId } : {}),
       },
       select: { id: true },
     });
@@ -324,7 +326,8 @@ export class AutoreplyService {
     for (const rule of matchedRules) {
       const alreadyHandled = await this.alreadyHandledMessage(
         rule.id,
-        input.messageId
+        input.messageId,
+        input.channelTargetId
       );
       if (alreadyHandled) {
         continue;

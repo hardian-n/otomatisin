@@ -41,6 +41,7 @@ import { InboxController } from '@gitroom/backend/api/routes/inbox.controller';
 import { ThreadsInboxService } from '@gitroom/backend/services/inbox/threads.inbox.service';
 import { InboxPollSchedulerService } from '@gitroom/backend/services/inbox/inbox.poll.scheduler';
 import { InboxPollingService } from '@gitroom/backend/services/inbox/inbox.polling.service';
+import { TelegramInboxService } from '@gitroom/backend/services/inbox/telegram.inbox.service';
 
 const authenticatedController = [
   UsersController,
@@ -89,6 +90,7 @@ const authenticatedController = [
     Nowpayments,
     AutoreplyService,
     ThreadsInboxService,
+    TelegramInboxService,
     InboxPollingService,
     InboxPollSchedulerService,
   ],

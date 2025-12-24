@@ -10,10 +10,17 @@ import { InboxController } from '@gitroom/workers/app/inbox.controller';
 import { InboxPollingService } from '@gitroom/workers/app/inbox.polling.service';
 import { ThreadsInboxService } from '@gitroom/backend/services/inbox/threads.inbox.service';
 import { AutoreplyService } from '@gitroom/backend/services/autoreply/autoreply.service';
+import { TelegramInboxService } from '@gitroom/backend/services/inbox/telegram.inbox.service';
 
 @Module({
   imports: [SentryModule.forRoot(), DatabaseModule, BullMqModule],
   controllers: [PostsController, PlugsController, InboxController],
-  providers: [FILTER, InboxPollingService, ThreadsInboxService, AutoreplyService],
+  providers: [
+    FILTER,
+    InboxPollingService,
+    ThreadsInboxService,
+    TelegramInboxService,
+    AutoreplyService,
+  ],
 })
 export class AppModule {}
