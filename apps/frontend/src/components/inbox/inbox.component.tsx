@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import useCookie from 'react-use-cookie';
 import useSWR from 'swr';
@@ -11,7 +11,6 @@ import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import ImageWithFallback from '@gitroom/react/helpers/image.with.fallback';
 import { SVGLine } from '@gitroom/frontend/components/launches/launches.component';
 import { Button } from '@gitroom/react/form/button';
-import { Select } from '@gitroom/react/form/select';
 
 type IntegrationLite = {
   id: string;
@@ -219,7 +218,6 @@ const InboxChannels = ({
 
 export const InboxComponent = () => {
   const fetcher = useFetch();
-  const [channels, setChannels] = useState<IntegrationLite[]>([]);
   const [selectedIntegration, setSelectedIntegration] =
     useState<IntegrationLite | null>(null);
 
@@ -245,7 +243,7 @@ export const InboxComponent = () => {
     return [...threads, ...telegram];
   }, [fetcher]);
 
-  const { data: channelData, isLoading: channelsLoading } = useSWR(
+  const { data: channelData } = useSWR(
     'inbox-channels',
     loadChannels,
     {
@@ -266,10 +264,7 @@ export const InboxComponent = () => {
       ['asc', 'asc', 'asc']
     );
   }, [channelData]);
-
-  useEffect(() => {
-    setChannels(sortedChannels as IntegrationLite[]);
-  }, [sortedChannels]);
+  const channels = sortedChannels as IntegrationLite[];
 
   const selectedProvider =
     selectedIntegration?.providerIdentifier || selectedIntegration?.identifier;
@@ -311,208 +306,172 @@ export const InboxComponent = () => {
 
   return (
     <>
-      <div className="flex flex-col lg:flex-row w-full gap-[12px]">
-        <div className="hidden lg:block">
-          <InboxChannels
-            integrations={channels}
-            selectedId={selectedIntegration?.id || null}
-            onSelect={setSelectedIntegration}
-          />
-        </div>
-        <div className="bg-newBgColorInner flex flex-1 relative">
-          <div className="absolute top-0 start-0 w-full h-full p-[12px] lg:p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-[12px] mb-[16px]">
-              <div className="flex flex-col gap-[4px]">
-                <h1 className="text-[20px] font-[600]">Inbox</h1>
-                <div className="text-[12px] text-textItemBlur">
-                  {selectedIntegration
-                    ? `${selectedIntegration.name} - ${
-                        providerLabels[selectedProvider || ''] ||
-                        selectedProvider
-                      }`
-                    : 'Select a channel to view inbox'}
-                  {lastSync && ` | last sync ${lastSync}`}
-                </div>
-              </div>
-              <div className="flex items-center gap-[8px]">
-                <div className="text-[12px] text-textItemBlur">
-                  Auto refresh 15s
-                </div>
-                <Button
-                  type="button"
-                  disabled={!selectedIntegration || isLoading}
-                  onClick={() => refresh()}
-                >
-                  Refresh
-                </Button>
+      <InboxChannels
+        integrations={channels}
+        selectedId={selectedIntegration?.id || null}
+        onSelect={setSelectedIntegration}
+      />
+      <div className="bg-newBgColorInner flex flex-1 relative">
+        <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+          <div className="flex items-center justify-between mb-[16px]">
+            <div className="flex flex-col gap-[4px]">
+              <h1 className="text-[20px] font-[600]">Inbox</h1>
+              <div className="text-[12px] text-textItemBlur">
+                {selectedIntegration
+                  ? `${selectedIntegration.name} - ${
+                      providerLabels[selectedProvider || ''] ||
+                      selectedProvider
+                    }`
+                  : 'Select a channel to view inbox'}
+                {lastSync && ` | last sync ${lastSync}`}
               </div>
             </div>
-
-            <div className="mb-[12px] w-full sm:max-w-[260px]">
-              <Select
-                label="Channel"
-                name="channel"
-                disableForm={true}
-                hideErrors={true}
-                value={selectedIntegration?.id || ''}
-                onChange={(e) => {
-                  const selected = channels.find(
-                    (channel) => channel.id === e.target.value
-                  );
-                  setSelectedIntegration(selected || null);
-                }}
-              >
-                <option value="">
-                  {channelsLoading ? 'Loading channels...' : 'Select a channel'}
-                </option>
-                {channels.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.name} -{' '}
-                    {providerLabels[channel.providerIdentifier || ''] ||
-                      channel.providerIdentifier}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {error && (
-              <div className="text-red-400 text-sm mb-[12px]">
-                Failed to load inbox.
-              </div>
-            )}
-            {data?.error === 'refresh_needed' && (
-              <div className="text-yellow-300 text-sm mb-[12px]">
-                Channel needs reconnect to refresh token.
-              </div>
-            )}
-
-            {!selectedIntegration && (
-              <div className="text-sm text-textItemBlur">
-                Choose a channel from the list.
-              </div>
-            )}
-
-            {selectedIntegration && isLoading && (
-              <div className="text-sm text-textItemBlur">Loading inbox...</div>
-            )}
-
-            {selectedIntegration &&
-              !isLoading &&
-              selectedProvider === 'telegram' &&
-              !messages.length && (
-                <div className="text-sm text-textItemBlur">
-                  No messages found yet.
-                </div>
-              )}
-
-            {selectedIntegration &&
-              !isLoading &&
-              selectedProvider !== 'telegram' &&
-              !posts.length && (
-                <div className="text-sm text-textItemBlur">
-                  No replies found yet.
-                </div>
-              )}
-
-            {selectedIntegration && selectedProvider === 'telegram' && (
-              <div className="flex flex-col gap-[12px]">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className="border border-newTableBorder rounded-[10px] bg-newTableHeader p-[12px]"
-                  >
-                    <div className="flex items-center justify-between text-xs text-textItemBlur mb-[6px]">
-                      <div>{msg.username ? `@${msg.username}` : 'User'}</div>
-                      <div>
-                        {msg.timestamp
-                          ? dayjs(msg.timestamp).format('HH:mm')
-                          : ''}
-                      </div>
-                    </div>
-                    <div className="text-sm whitespace-pre-wrap">
-                      {msg.text || ''}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {selectedIntegration && selectedProvider !== 'telegram' && (
-              <div className="flex flex-col gap-[16px]">
-                {posts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="border border-newTableBorder rounded-[10px] bg-newTableHeader p-[16px]"
-                  >
-                    <div className="flex flex-col gap-[8px]">
-                      <div className="text-[12px] text-textItemBlur">
-                        {dayjs(post.publishDate).format('DD/MM/YYYY HH:mm')}
-                      </div>
-                      <div
-                        className="text-sm whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{
-                          __html: post.content,
-                        }}
-                      />
-                      {post.releaseURL && (
-                        <a
-                          href={post.releaseURL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-blue-400 hover:underline"
-                        >
-                          View on Threads
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="mt-[12px] border-t border-newTableBorder pt-[12px]">
-                      <div className="text-xs text-textItemBlur mb-[8px]">
-                        Replies ({post.replies?.length || 0})
-                      </div>
-                      {!post.replies?.length && (
-                        <div className="text-sm text-textItemBlur">
-                          No replies yet.
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-[10px]">
-                        {(post.replies || []).map((reply) => (
-                          <div
-                            key={reply.id}
-                            className="bg-newBgColorInner border border-newTableBorder rounded-[8px] p-[10px]"
-                          >
-                            <div className="flex items-center justify-between text-xs text-textItemBlur mb-[6px]">
-                              <div>
-                                {reply.username ? `@${reply.username}` : 'User'}
-                              </div>
-                              <div>
-                                {reply.timestamp
-                                  ? dayjs(reply.timestamp).format('HH:mm')
-                                  : ''}
-                              </div>
-                            </div>
-                            <div className="text-sm whitespace-pre-wrap">
-                              {reply.text || ''}
-                            </div>
-                            {reply.permalink && (
-                              <a
-                                href={reply.permalink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-blue-400 hover:underline mt-[6px] inline-block"
-                              >
-                                Open reply
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <Button
+              type="button"
+              disabled={!selectedIntegration || isLoading}
+              onClick={() => refresh()}
+            >
+              Refresh
+            </Button>
           </div>
+
+          {error && (
+            <div className="text-red-400 text-sm mb-[12px]">
+              Failed to load inbox.
+            </div>
+          )}
+          {data?.error === 'refresh_needed' && (
+            <div className="text-yellow-300 text-sm mb-[12px]">
+              Channel needs reconnect to refresh token.
+            </div>
+          )}
+
+          {!selectedIntegration && (
+            <div className="text-sm text-textItemBlur">
+              Choose a channel from the list.
+            </div>
+          )}
+
+          {selectedIntegration && isLoading && (
+            <div className="text-sm text-textItemBlur">Loading inbox...</div>
+          )}
+
+          {selectedIntegration &&
+            !isLoading &&
+            selectedProvider === 'telegram' &&
+            !messages.length && (
+              <div className="text-sm text-textItemBlur">
+                No messages found yet.
+              </div>
+            )}
+
+          {selectedIntegration &&
+            !isLoading &&
+            selectedProvider !== 'telegram' &&
+            !posts.length && (
+              <div className="text-sm text-textItemBlur">
+                No replies found yet.
+              </div>
+            )}
+
+          {selectedIntegration && selectedProvider === 'telegram' && (
+            <div className="flex flex-col gap-[12px]">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="border border-newTableBorder rounded-[10px] bg-newTableHeader p-[12px]"
+                >
+                  <div className="flex items-center justify-between text-xs text-textItemBlur mb-[6px]">
+                    <div>{msg.username ? `@${msg.username}` : 'User'}</div>
+                    <div>
+                      {msg.timestamp
+                        ? dayjs(msg.timestamp).format('HH:mm')
+                        : ''}
+                    </div>
+                  </div>
+                  <div className="text-sm whitespace-pre-wrap">
+                    {msg.text || ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {selectedIntegration && selectedProvider !== 'telegram' && (
+            <div className="flex flex-col gap-[16px]">
+              {posts.map((post) => (
+                <div
+                  key={post.id}
+                  className="border border-newTableBorder rounded-[10px] bg-newTableHeader p-[16px]"
+                >
+                  <div className="flex flex-col gap-[8px]">
+                    <div className="text-[12px] text-textItemBlur">
+                      {dayjs(post.publishDate).format('DD/MM/YYYY HH:mm')}
+                    </div>
+                    <div
+                      className="text-sm whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{
+                        __html: post.content,
+                      }}
+                    />
+                    {post.releaseURL && (
+                      <a
+                        href={post.releaseURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-blue-400 hover:underline"
+                      >
+                        View on Threads
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="mt-[12px] border-t border-newTableBorder pt-[12px]">
+                    <div className="text-xs text-textItemBlur mb-[8px]">
+                      Replies ({post.replies?.length || 0})
+                    </div>
+                    {!post.replies?.length && (
+                      <div className="text-sm text-textItemBlur">
+                        No replies yet.
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-[10px]">
+                      {(post.replies || []).map((reply) => (
+                        <div
+                          key={reply.id}
+                          className="bg-newBgColorInner border border-newTableBorder rounded-[8px] p-[10px]"
+                        >
+                          <div className="flex items-center justify-between text-xs text-textItemBlur mb-[6px]">
+                            <div>
+                              {reply.username ? `@${reply.username}` : 'User'}
+                            </div>
+                            <div>
+                              {reply.timestamp
+                                ? dayjs(reply.timestamp).format('HH:mm')
+                                : ''}
+                            </div>
+                          </div>
+                          <div className="text-sm whitespace-pre-wrap">
+                            {reply.text || ''}
+                          </div>
+                          {reply.permalink && (
+                            <a
+                              href={reply.permalink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-blue-400 hover:underline mt-[6px] inline-block"
+                            >
+                              Open reply
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>
