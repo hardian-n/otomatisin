@@ -12,11 +12,50 @@ import mime from 'mime';
 import TelegramBot from 'node-telegram-bot-api';
 import { Integration } from '@prisma/client';
 import striptags from 'striptags';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
 
-const telegramBot = new TelegramBot(process.env.TELEGRAM_TOKEN!);
+const telegramBots = new Map<string, TelegramBot>();
+const getTelegramBot = (token: string) => {
+  const existing = telegramBots.get(token);
+  if (existing) {
+    return existing;
+  }
+  const bot = new TelegramBot(token);
+  telegramBots.set(token, bot);
+  return bot;
+};
+const fallbackTelegramToken =
+  process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 // Added to support local storage posting
 const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5000';
 const mediaStorage = process.env.STORAGE_PROVIDER || 'local';
+const parseTelegramSettings = (details?: string | null) => {
+  if (!details) {
+    return {};
+  }
+  try {
+    const decrypted = AuthService.fixedDecryption(details);
+    const parsed = JSON.parse(decrypted);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as Record<string, any>;
+    }
+  } catch {
+    // ignore invalid custom instance details
+  }
+  return {};
+};
+const parseTelegramAuthPayload = (code: string) => {
+  try {
+    const decoded = Buffer.from(code, 'base64').toString();
+    const parsed = JSON.parse(decoded);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as Record<string, any>;
+    }
+  } catch {
+    // ignore invalid base64 payload
+  }
+  return { chatId: code };
+};
 
 export class TelegramProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3; // Telegram has moderate bot API limits
@@ -28,6 +67,23 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
   editor = 'html' as const;
   maxLength() {
     return 4096;
+  }
+
+  async customFields() {
+    return [
+      {
+        key: 'botName',
+        label: 'Telegram Bot Name',
+        validation: `/^.{2,}$/`,
+        type: 'text' as const,
+      },
+      {
+        key: 'botToken',
+        label: 'Telegram Bot Token',
+        validation: `/^.{10,}$/`,
+        type: 'password' as const,
+      },
+    ];
   }
 
   async refreshToken(refresh_token: string): Promise<AuthTokenDetails> {
@@ -56,7 +112,26 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
     codeVerifier: string;
     refresh?: string;
   }) {
-    const chat = await telegramBot.getChat(params.code);
+    const payload = parseTelegramAuthPayload(params.code);
+    const botToken =
+      payload.botToken || payload.telegramBotToken || fallbackTelegramToken;
+    if (!botToken) {
+      return 'Telegram bot token is missing';
+    }
+
+    const telegramBot = getTelegramBot(botToken);
+    const chatId =
+      payload.chatId ||
+      params.refresh ||
+      (!payload.botToken &&
+      !payload.telegramBotToken &&
+      !payload.botName
+        ? params.code
+        : undefined);
+    if (!chatId) {
+      return 'No chat found';
+    }
+    const chat = await telegramBot.getChat(chatId);
 
     console.log(JSON.stringify(chat));
     if (!chat?.id) {
@@ -79,7 +154,13 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  async getBotId(query: { id?: number; word: string }) {
+  async getBotId(query: { id?: number; word: string; token?: string }) {
+    const token =
+      (query as { token?: string })?.token || fallbackTelegramToken;
+    if (!token) {
+      throw new Error('Telegram bot token is missing');
+    }
+    const telegramBot = getTelegramBot(token);
     // Added allowed_updates Ensure only necessary updates are fetched
     const res = await telegramBot.getUpdates({
       ...(query.id ? { offset: query.id } : {}),
@@ -101,7 +182,7 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
       //get the numberic ID of the bot
       const botId = (await telegramBot.getMe()).id;
       // check if the bot is an admin in the chat
-      const isAdmin = await this.botIsAdmin(chatId, botId);
+      const isAdmin = await this.botIsAdmin(telegramBot, chatId, botId);
       // get the messageId of the message that triggered the connection
       const connectMessageId =
         match?.message?.message_id || match?.channel_post?.message_id;
@@ -143,9 +224,17 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
   async post(
     id: string,
     accessToken: string,
-    postDetails: PostDetails[]
+    postDetails: PostDetails[],
+    integration: Integration
   ): Promise<PostResponse[]> {
     const ids: PostResponse[] = [];
+    const settings = parseTelegramSettings(integration.customInstanceDetails);
+    const botToken =
+      settings.botToken || settings.telegramBotToken || fallbackTelegramToken;
+    if (!botToken) {
+      throw new Error('Telegram bot token is missing');
+    }
+    const telegramBot = getTelegramBot(botToken);
 
     for (const message of postDetails) {
       let messageId: number | null = null;
@@ -262,7 +351,11 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
     return result;
   }
 
-  async botIsAdmin(chatId: number, botId: number): Promise<boolean> {
+  async botIsAdmin(
+    telegramBot: TelegramBot,
+    chatId: number,
+    botId: number
+  ): Promise<boolean> {
     try {
       const chatMember = await telegramBot.getChatMember(chatId, botId);
 

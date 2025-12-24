@@ -287,6 +287,10 @@ export const Menu: FC<{
     setShow(false);
   }, [integrations]);
   const updateCredentials = useCallback(() => {
+    if (!findIntegration) {
+      return;
+    }
+    const refreshId = findIntegration.internalId;
     modal.openModal({
       title: 'Custom URL',
       withCloseButton: false,
@@ -296,12 +300,19 @@ export const Menu: FC<{
       children: (
         <CustomVariables
           identifier={findIntegration.identifier}
-          gotoUrl={(url: string) => router.push(url)}
+          gotoUrl={(url: string) => {
+            const shouldAppendRefresh =
+              findIntegration.identifier === 'telegram' && refreshId;
+            const nextUrl = shouldAppendRefresh
+              ? `${url}&refresh=${encodeURIComponent(refreshId)}`
+              : url;
+            router.push(nextUrl);
+          }}
           variables={findIntegration.customFields}
         />
       ),
     });
-  }, []);
+  }, [findIntegration]);
 
   return (
     <div

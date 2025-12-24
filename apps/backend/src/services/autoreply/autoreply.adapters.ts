@@ -40,9 +40,12 @@ class ThreadAdapter implements ChannelReplyAdapter {
 
 class TelegramAdapter implements ChannelReplyAdapter {
   async sendReply(input: SendReplyInput): Promise<void> {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const token =
+      input.metadata?.botToken ||
+      process.env.TELEGRAM_BOT_TOKEN ||
+      process.env.TELEGRAM_TOKEN;
     if (!token) {
-      throw new Error('TELEGRAM_BOT_TOKEN is missing');
+      throw new Error('Telegram bot token is missing');
     }
     if (!input.channelTargetId) {
       throw new Error('channelTargetId (chat_id) is required for Telegram');

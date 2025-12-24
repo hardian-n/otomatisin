@@ -22,16 +22,22 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
   const word = useRef(makeId(4));
   const stop = useRef(false);
   const [step, setStep] = useState(false);
+  const [botName, setBotName] = useState(telegramBotName || '');
+  const [botToken, setBotToken] = useState('');
   const toaster = useToaster();
   async function* load() {
+    const token = botToken.trim();
     let id = '';
     while (true) {
       const data = await (
-        await fetch(
-          `/integrations/telegram/updates?word=${word.current}${
-            id ? `&id=${id}` : ''
-          }`
-        )
+        await fetch(`/integrations/telegram/updates`, {
+          method: 'POST',
+          body: JSON.stringify({
+            word: word.current,
+            ...(id ? { id: Number(id) } : {}),
+            token,
+          }),
+        })
       ).json();
       if (data.lastChatId) {
         id = data.lastChatId;
@@ -42,6 +48,12 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
   const t = useT();
 
   const loadAll = async () => {
+    const normalizedName = botName.trim().replace(/^@/, '');
+    const token = botToken.trim();
+    if (!normalizedName || !token) {
+      toaster.show('Please enter bot name and token', 'warning');
+      return;
+    }
     stop.current = false;
     setStep(true);
     const generator = load();
@@ -50,7 +62,14 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
         return;
       }
       if (data.chatId) {
-        onComplete(data.chatId, nonce);
+        const payload = Buffer.from(
+          JSON.stringify({
+            chatId: data.chatId,
+            botToken: token,
+            botName: normalizedName,
+          })
+        ).toString('base64');
+        onComplete(payload, nonce);
         return;
       }
       await timer(2000);
@@ -65,6 +84,10 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
       stop.current = true;
     };
   }, []);
+  const displayBotName =
+    botName.trim().replace(/^@/, '') ||
+    telegramBotName?.trim().replace(/^@/, '') ||
+    '';
   return (
     <div className="rounded-[4px] border border-customColor6 bg-sixth px-[16px] pb-[16px] relative w-[700px]">
       <TopTitle title={`Add Telegram`} />
@@ -89,9 +112,28 @@ export const TelegramProvider: FC<Web3ProviderInterface> = (props) => {
         </svg>
       </button>
       <div className="justify-center items-center flex flex-col pt-[16px]">
+        <div className="w-full flex flex-col gap-[10px] pb-[10px]">
+          <Input
+            label="Telegram Bot Name"
+            name="botName"
+            placeholder="@your_bot"
+            value={botName}
+            onChange={(e: any) => setBotName(e.target.value)}
+          />
+          <Input
+            label="Telegram Bot Token"
+            name="botToken"
+            placeholder="123456:ABCDEF..."
+            type="password"
+            value={botToken}
+            onChange={(e: any) => setBotToken(e.target.value)}
+          />
+        </div>
         <div>
           {t('please_add', 'Please add')}{' '}
-          <strong>@{telegramBotName}</strong>{' '}
+          <strong>
+            {displayBotName ? `@${displayBotName}` : t('your_bot', 'your bot')}
+          </strong>{' '}
           {t(
             'to_your_telegram_group_channel_and_click_here',
             'to your\n          telegram group / channel and click here:'

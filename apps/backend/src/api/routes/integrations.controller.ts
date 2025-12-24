@@ -658,7 +658,14 @@ export class IntegrationsController {
   }
 
   @Get('/telegram/updates')
-  async getUpdates(@Query() query: { word: string; id?: number }) {
+  async getUpdates(@Query() query: { word: string; id?: number; token?: string }) {
     return new TelegramProvider().getBotId(query);
+  }
+
+  @Post('/telegram/updates')
+  async postUpdates(
+    @Body() body: { word: string; id?: number; token?: string }
+  ) {
+    return new TelegramProvider().getBotId(body);
   }
 }

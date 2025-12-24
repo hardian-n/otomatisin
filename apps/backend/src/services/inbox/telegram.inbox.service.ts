@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
 import { AutoreplyService } from '@gitroom/backend/services/autoreply/autoreply.service';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
+import { Integration } from '@prisma/client';
 
 type TelegramUpdate = {
   update_id: number;
@@ -60,9 +62,11 @@ export class TelegramInboxService {
       throw new BadRequestException('Integration is not Telegram');
     }
 
-    const token = process.env.TELEGRAM_TOKEN;
+    const token = this.getTelegramToken(integration);
     if (!token) {
-      throw new BadRequestException('TELEGRAM_TOKEN is not configured');
+      throw new BadRequestException(
+        'Telegram bot token is missing for this integration'
+      );
     }
 
     const chatId = Number(integration.token);
@@ -182,5 +186,31 @@ export class TelegramInboxService {
       }
     }
   }
-}
 
+  private getTelegramToken(integration: Integration) {
+    const settings = this.parseTelegramSettings(integration.customInstanceDetails);
+    return (
+      settings.botToken ||
+      settings.telegramBotToken ||
+      process.env.TELEGRAM_TOKEN ||
+      process.env.TELEGRAM_BOT_TOKEN ||
+      ''
+    );
+  }
+
+  private parseTelegramSettings(details?: string | null) {
+    if (!details) {
+      return {};
+    }
+    try {
+      const decrypted = AuthService.fixedDecryption(details);
+      const parsed = JSON.parse(decrypted);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as Record<string, any>;
+      }
+    } catch {
+      // ignore invalid custom instance details
+    }
+    return {};
+  }
+}

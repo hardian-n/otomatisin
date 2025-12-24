@@ -8,6 +8,7 @@ import {
   orderByTargetAndPriority,
 } from './autoreply.engine';
 import { getChannelAdapter } from './autoreply.adapters';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
 
 type EvaluateInput = {
   orgId: string;
@@ -365,6 +366,22 @@ export class AutoreplyService {
             });
             return;
           }
+          if (channel === 'telegram') {
+            const botToken = await this.resolveTelegramBotToken(
+              input.orgId,
+              input.integrationId ?? rule.integrationId ?? null,
+              input.channelTargetId
+            );
+            const adapter = getChannelAdapter('telegram');
+            await adapter.sendReply({
+              channel: input.channel,
+              channelTargetId: input.channelTargetId,
+              replyText: rule.replyText,
+              replyToMessageId: input.messageId,
+              metadata: { ruleId: rule.id, botToken },
+            });
+            return;
+          }
 
           const adapter = getChannelAdapter(input.channel);
           await adapter.sendReply({
@@ -411,6 +428,62 @@ export class AutoreplyService {
       matched: true,
       replies,
     };
+  }
+
+  private async resolveTelegramBotToken(
+    orgId: string,
+    integrationId?: string | null,
+    channelTargetId?: string | null
+  ) {
+    let integration = null;
+    if (integrationId) {
+      integration = await this.prisma.integration.findFirst({
+        where: {
+          id: integrationId,
+          organizationId: orgId,
+          providerIdentifier: 'telegram',
+          deletedAt: null,
+        },
+      });
+    }
+
+    if (!integration && channelTargetId) {
+      integration = await this.prisma.integration.findFirst({
+        where: {
+          organizationId: orgId,
+          providerIdentifier: 'telegram',
+          token: channelTargetId,
+          deletedAt: null,
+        },
+      });
+    }
+
+    const settings = this.parseTelegramSettings(
+      integration?.customInstanceDetails
+    );
+    return (
+      settings.botToken ||
+      settings.telegramBotToken ||
+      process.env.TELEGRAM_BOT_TOKEN ||
+      process.env.TELEGRAM_TOKEN ||
+      null
+    );
+  }
+
+  private parseTelegramSettings(details?: string | null) {
+    if (!details) {
+      return {};
+    }
+    try {
+      const decrypted = AuthService.fixedDecryption(details);
+      const parsed = JSON.parse(decrypted);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as Record<string, any>;
+      }
+    } catch {
+      // ignore invalid custom instance details
+    }
+    return {};
   }
 
   private buildOptionalFilter(
