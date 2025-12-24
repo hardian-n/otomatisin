@@ -110,18 +110,21 @@ const InboxChannels = ({
   return (
     <div
       className={clsx(
-        'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all relative',
-        collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
+        'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all w-full relative',
+        collapseMenu === '1'
+          ? 'lg:group lg:sidebar lg:w-[100px]'
+          : 'lg:w-[260px]'
       )}
     >
-      <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+      <div className="lg:absolute lg:top-0 lg:start-0 lg:w-full lg:h-full p-[12px] lg:p-[20px] lg:overflow-auto lg:scrollbar lg:scrollbar-thumb-fifth lg:scrollbar-track-newBgColor">
         <div className="flex items-center">
           <h2 className="group-[.sidebar]:hidden flex-1 text-[20px] font-[500] mb-[15px]">
-            Inbox Channels
+            <span className="lg:hidden">Channels</span>
+            <span className="hidden lg:inline">Inbox Channels</span>
           </h2>
           <div
             onClick={() => setCollapseMenu(collapseMenu === '1' ? '0' : '1')}
-            className="-mt-3 group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] flex items-center justify-center cursor-pointer select-none"
+            className="-mt-3 group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] hidden lg:flex items-center justify-center cursor-pointer select-none"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -148,58 +151,60 @@ const InboxChannels = ({
             const identifier =
               integration.identifier || integration.providerIdentifier || '';
             return (
-            <div
-              onClick={() =>
-                onSelect(selectedId === integration.id ? null : integration)
-              }
-              key={integration.id}
-              className={clsx(
-                'flex gap-[12px] items-center group/profile justify-center hover:bg-boxHover rounded-e-[8px] hover:opacity-100 cursor-pointer',
-                selectedId && selectedId !== integration.id && 'opacity-20'
-              )}
-            >
               <div
+                onClick={() =>
+                  onSelect(selectedId === integration.id ? null : integration)
+                }
+                key={integration.id}
                 className={clsx(
-                  'relative rounded-full flex justify-center items-center gap-[6px]',
-                  integration.disabled && 'opacity-50'
+                  'flex gap-[12px] items-center group/profile justify-center cursor-pointer',
+                  'rounded-[10px] border border-newTableBorder bg-newTableHeader px-[12px] py-[10px]',
+                  'lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:rounded-e-[8px] lg:hover:bg-boxHover lg:hover:opacity-100',
+                  selectedId && selectedId !== integration.id && 'opacity-20'
                 )}
               >
-                {(integration.inBetweenSteps || integration.refreshNeeded) && (
-                  <div className="absolute start-0 top-0 w-[39px] h-[46px] cursor-pointer">
-                    <div className="bg-red-500 w-[15px] h-[15px] rounded-full start-0 -top-[5px] absolute z-[200] text-[10px] flex justify-center items-center">
-                      !
+                <div
+                  className={clsx(
+                    'relative rounded-full flex justify-center items-center gap-[6px]',
+                    integration.disabled && 'opacity-50'
+                  )}
+                >
+                  {(integration.inBetweenSteps || integration.refreshNeeded) && (
+                    <div className="absolute start-0 top-0 w-[39px] h-[46px] cursor-pointer">
+                      <div className="bg-red-500 w-[15px] h-[15px] rounded-full start-0 -top-[5px] absolute z-[200] text-[10px] flex justify-center items-center">
+                        !
+                      </div>
+                      <div className="bg-primary/60 w-[39px] h-[46px] start-0 top-0 absolute rounded-full z-[199]" />
                     </div>
-                    <div className="bg-primary/60 w-[39px] h-[46px] start-0 top-0 absolute rounded-full z-[199]" />
+                  )}
+                  <div className="h-full w-[4px] -ms-[12px] rounded-s-[3px] opacity-0 group-hover/profile:opacity-100 transition-opacity">
+                    <SVGLine />
                   </div>
-                )}
-                <div className="h-full w-[4px] -ms-[12px] rounded-s-[3px] opacity-0 group-hover/profile:opacity-100 transition-opacity">
-                  <SVGLine />
+                  <ImageWithFallback
+                    fallbackSrc={`/icons/platforms/${identifier}.png`}
+                    src={integration.picture}
+                    className="rounded-[8px]"
+                    alt={identifier}
+                    width={36}
+                    height={36}
+                  />
+                  <Image
+                    src={`/icons/platforms/${identifier}.png`}
+                    className="rounded-[8px] absolute z-10 bottom-[5px] -end-[5px] border border-fifth"
+                    alt={identifier}
+                    width={18}
+                    height={18}
+                  />
                 </div>
-                <ImageWithFallback
-                  fallbackSrc={`/icons/platforms/${identifier}.png`}
-                  src={integration.picture}
-                  className="rounded-[8px]"
-                  alt={identifier}
-                  width={36}
-                  height={36}
-                />
-                <Image
-                  src={`/icons/platforms/${identifier}.png`}
-                  className="rounded-[8px] absolute z-10 bottom-[5px] -end-[5px] border border-fifth"
-                  alt={identifier}
-                  width={18}
-                  height={18}
-                />
-              </div>
-              <div
-                className={clsx(
-                  'flex-1 whitespace-nowrap text-ellipsis overflow-hidden group-[.sidebar]:hidden',
-                  integration.disabled && 'opacity-50'
-                )}
-              >
+                <div
+                  className={clsx(
+                    'flex-1 whitespace-nowrap text-ellipsis overflow-hidden group-[.sidebar]:hidden',
+                    integration.disabled && 'opacity-50'
+                  )}
+                >
                   {integration.name}
                   {integration.providerIdentifier && (
-                  <span className="text-[11px] text-textItemBlur">
+                    <span className="text-[11px] text-textItemBlur">
                       {' '}
                       -{' '}
                       {providerLabels[integration.providerIdentifier] ||
@@ -207,8 +212,8 @@ const InboxChannels = ({
                     </span>
                   )}
                 </div>
-            </div>
-          );
+              </div>
+            );
           })}
         </div>
       </div>
@@ -312,8 +317,8 @@ export const InboxComponent = () => {
         onSelect={setSelectedIntegration}
       />
       <div className="bg-newBgColorInner flex flex-1 relative">
-        <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
-          <div className="flex items-center justify-between mb-[16px]">
+        <div className="absolute top-0 start-0 w-full h-full p-[12px] lg:p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[10px] mb-[16px]">
             <div className="flex flex-col gap-[4px]">
               <h1 className="text-[20px] font-[600]">Inbox</h1>
               <div className="text-[12px] text-textItemBlur">
