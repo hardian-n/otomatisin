@@ -85,18 +85,21 @@ const AutoreplyChannels = ({
   return (
     <div
       className={clsx(
-        'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all relative',
-        collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
+        'trz bg-newBgColorInner flex flex-col gap-[15px] transition-all w-full relative',
+        collapseMenu === '1'
+          ? 'lg:group lg:sidebar lg:w-[100px]'
+          : 'lg:w-[260px]'
       )}
     >
-      <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+      <div className="lg:absolute lg:top-0 lg:start-0 lg:w-full lg:h-full p-[12px] lg:p-[20px] lg:overflow-auto lg:scrollbar lg:scrollbar-thumb-fifth lg:scrollbar-track-newBgColor">
         <div className="flex items-center">
           <h2 className="group-[.sidebar]:hidden flex-1 text-[20px] font-[500] mb-[15px]">
-            Autoreply Channels
+            <span className="lg:hidden">Channels</span>
+            <span className="hidden lg:inline">Autoreply Channels</span>
           </h2>
           <div
             onClick={() => setCollapseMenu(collapseMenu === '1' ? '0' : '1')}
-            className="-mt-3 group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] flex items-center justify-center cursor-pointer select-none"
+            className="-mt-3 group-[.sidebar]:rotate-[180deg] group-[.sidebar]:mx-auto text-btnText bg-btnSimple rounded-[6px] w-[24px] h-[24px] hidden lg:flex items-center justify-center cursor-pointer select-none"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -123,7 +126,9 @@ const AutoreplyChannels = ({
               }
               key={integration.id}
               className={clsx(
-                'flex gap-[12px] items-center group/profile justify-center hover:bg-boxHover rounded-e-[8px] hover:opacity-100 cursor-pointer',
+                'flex gap-[12px] items-center group/profile justify-center cursor-pointer',
+                'rounded-[10px] border border-newTableBorder bg-newTableHeader px-[12px] py-[10px]',
+                'lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:rounded-e-[8px] lg:hover:bg-boxHover lg:hover:opacity-100',
                 selectedId && selectedId !== integration.id && 'opacity-20'
               )}
             >
@@ -313,8 +318,8 @@ export default function AutoreplyPage() {
         onSelect={setSelectedIntegration}
       />
       <div className="bg-newBgColorInner flex flex-1 relative">
-        <div className="absolute top-0 start-0 w-full h-full p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
-          <div className="flex items-center justify-between mb-[16px]">
+        <div className="absolute top-0 start-0 w-full h-full p-[12px] lg:p-[20px] overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[10px] mb-[16px]">
             <div className="flex flex-col gap-[4px]">
               <h1 className="text-[20px] font-[600]">Autoreply</h1>
               <div className="text-[12px] text-textItemBlur">
