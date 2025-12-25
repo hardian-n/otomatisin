@@ -532,7 +532,28 @@ export class IntegrationsController {
         throw err;
       }
       if (err instanceof BadBody) {
-        throw new NotEnoughScopes(err.message || 'Invalid provider response');
+        let providerMessage = err.message;
+        if (!providerMessage && err.json) {
+          try {
+            const parsed = JSON.parse(err.json);
+            providerMessage =
+              parsed?.error?.error_user_msg ||
+              parsed?.error?.message ||
+              parsed?.message ||
+              parsed?.error_description ||
+              '';
+          } catch {
+            providerMessage = '';
+          }
+        }
+        if (err.identifier || providerMessage) {
+          const raw = err.json ? err.json.slice(0, 500) : '';
+          console.warn(
+            `[IntegrationsController] ${integration} auth failed: ${providerMessage || 'BadBody'}`,
+            raw
+          );
+        }
+        throw new NotEnoughScopes(providerMessage || 'Invalid provider response');
       }
       if (err instanceof RefreshToken) {
         throw new NotEnoughScopes(err.message || 'Please reconnect the channel');
