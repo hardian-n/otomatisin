@@ -250,8 +250,8 @@ export class SubscriptionService {
 
   private async applyTierChange(
     organizationId: string,
-    fromTier: SubscriptionTier,
-    toTier: SubscriptionTier,
+    fromTier: SubscriptionTier | 'FREE',
+    toTier: SubscriptionTier | 'FREE',
     totalChannels: number
   ) {
     const from = pricing[fromTier] || pricing.FREE;
@@ -290,7 +290,7 @@ export class SubscriptionService {
   async adminUpdateSubscription(
     organizationId: string,
     data: {
-      subscriptionTier: SubscriptionTier;
+      subscriptionTier: SubscriptionTier | 'FREE';
       totalChannels?: number;
       period?: Period;
       isLifetime?: boolean;
@@ -322,14 +322,23 @@ export class SubscriptionService {
       resolvedTotalChannels
     );
 
-    await this._subscriptionRepository.upsertAdminSubscription(organizationId, {
-      subscriptionTier: data.subscriptionTier,
-      totalChannels: resolvedTotalChannels,
-      period,
-      isLifetime,
-      identifier: current?.identifier || 'manual',
-      cancelAt: current?.cancelAt || null,
-    });
+    if (data.subscriptionTier === 'FREE') {
+      await this._subscriptionRepository.archiveAdminSubscription(
+        organizationId
+      );
+    } else {
+      await this._subscriptionRepository.upsertAdminSubscription(
+        organizationId,
+        {
+          subscriptionTier: data.subscriptionTier,
+          totalChannels: resolvedTotalChannels,
+          period,
+          isLifetime,
+          identifier: current?.identifier || 'manual',
+          cancelAt: current?.cancelAt || null,
+        }
+      );
+    }
 
     if (data.allowTrial !== undefined || data.isTrailing !== undefined) {
       await this._organizationService.updateTrialFlags(organizationId, {

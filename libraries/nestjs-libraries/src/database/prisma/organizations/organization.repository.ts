@@ -1,9 +1,50 @@
 import { PrismaRepository } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
-import { Role, SubscriptionTier } from '@prisma/client';
+import { Prisma, Role, SubscriptionTier } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+
+const adminOrganizationSelect = {
+  id: true,
+  name: true,
+  createdAt: true,
+  allowTrial: true,
+  isTrailing: true,
+  paymentId: true,
+  subscription: {
+    select: {
+      subscriptionTier: true,
+      totalChannels: true,
+      period: true,
+      isLifetime: true,
+      cancelAt: true,
+    },
+  },
+  users: {
+    where: {
+      role: Role.SUPERADMIN,
+    },
+    select: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
+      },
+    },
+  },
+  _count: {
+    select: {
+      users: true,
+    },
+  },
+} as const;
+
+export type AdminOrganizationListItem = Prisma.OrganizationGetPayload<{
+  select: typeof adminOrganizationSelect;
+}>;
 
 @Injectable()
 export class OrganizationRepository {
@@ -260,7 +301,11 @@ export class OrganizationRepository {
     });
   }
 
-  listAdminOrganizations(query: string | undefined, skip: number, take: number) {
+  listAdminOrganizations(
+    query: string | undefined,
+    skip: number,
+    take: number
+  ): Promise<AdminOrganizationListItem[]> {
     const search = query?.trim();
     const where = search
       ? {
@@ -268,7 +313,7 @@ export class OrganizationRepository {
             {
               name: {
                 contains: search,
-                mode: 'insensitive',
+                mode: Prisma.QueryMode.insensitive,
               },
             },
             {
@@ -279,13 +324,13 @@ export class OrganizationRepository {
                       {
                         email: {
                           contains: search,
-                          mode: 'insensitive',
+                          mode: Prisma.QueryMode.insensitive,
                         },
                       },
                       {
                         name: {
                           contains: search,
-                          mode: 'insensitive',
+                          mode: Prisma.QueryMode.insensitive,
                         },
                       },
                     ],
@@ -304,42 +349,7 @@ export class OrganizationRepository {
       },
       skip,
       take,
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        allowTrial: true,
-        isTrailing: true,
-        paymentId: true,
-        subscription: {
-          select: {
-            subscriptionTier: true,
-            totalChannels: true,
-            period: true,
-            isLifetime: true,
-            cancelAt: true,
-          },
-        },
-        users: {
-          where: {
-            role: Role.SUPERADMIN,
-          },
-          select: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                name: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            users: true,
-          },
-        },
-      },
+      select: adminOrganizationSelect,
     });
   }
 

@@ -1,6 +1,9 @@
 import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { Injectable } from '@nestjs/common';
-import { OrganizationRepository } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.repository';
+import {
+  AdminOrganizationListItem,
+  OrganizationRepository,
+} from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.repository';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { AddTeamMemberDto } from '@gitroom/nestjs-libraries/dtos/settings/add.team.member.dto';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
@@ -69,7 +72,11 @@ export class OrganizationService {
     return this._organizationRepository.getOrgByCustomerId(customerId);
   }
 
-  listAdminOrganizations(query: string | undefined, skip: number, take: number) {
+  listAdminOrganizations(
+    query: string | undefined,
+    skip: number,
+    take: number
+  ): Promise<AdminOrganizationListItem[]> {
     return this._organizationRepository.listAdminOrganizations(
       query,
       skip,

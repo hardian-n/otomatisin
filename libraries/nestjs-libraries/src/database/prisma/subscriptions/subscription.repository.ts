@@ -243,6 +243,18 @@ export class SubscriptionRepository {
     });
   }
 
+  archiveAdminSubscription(organizationId: string) {
+    return this._subscription.model.subscription.updateMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+  }
+
   async getCreditsFrom(
     organizationId: string,
     from: dayjs.Dayjs,
