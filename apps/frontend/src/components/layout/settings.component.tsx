@@ -32,6 +32,7 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { SVGLine } from '@gitroom/frontend/components/launches/launches.component';
 import { GlobalSettings } from '@gitroom/frontend/components/settings/global.settings';
 import { TelegramSettings } from '@gitroom/frontend/components/settings/telegram.settings';
+import { XSettings } from '@gitroom/frontend/components/settings/x.settings';
 export const SettingsPopup: FC<{
   getRef?: Ref<any>;
 }> = (props) => {
@@ -90,6 +91,7 @@ export const SettingsPopup: FC<{
     arr.push({ tab: 'global_settings', label: t('global_settings', 'Global Settings') });
     if (isGeneral) {
       arr.push({ tab: 'telegram', label: t('telegram', 'Telegram') });
+      arr.push({ tab: 'x', label: t('x', 'X') });
     }
     // Populate tabs based on user permissions
     if (user?.tier?.team_members && isGeneral) {
@@ -171,6 +173,11 @@ export const SettingsPopup: FC<{
               {tab === 'telegram' && isGeneral && (
                 <div>
                   <TelegramSettings />
+                </div>
+              )}
+              {tab === 'x' && isGeneral && (
+                <div>
+                  <XSettings />
                 </div>
               )}
               {tab === 'teams' && !!user?.tier?.team_members && isGeneral && (

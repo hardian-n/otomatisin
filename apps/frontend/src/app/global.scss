@@ -24,6 +24,9 @@ body * {
 }
 #tooltip {
   z-index: 10000;
+  max-width: calc(100vw - 32px);
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 .box:after {
   border-radius: 50px;

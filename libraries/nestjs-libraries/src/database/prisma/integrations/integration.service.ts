@@ -133,6 +133,18 @@ export class IntegrationService {
     return this._integrationRepository.updateIntegrationGroup(org, id, group);
   }
 
+  updateCustomInstanceDetailsByProvider(
+    orgId: string,
+    providerIdentifier: string,
+    customInstanceDetails: string
+  ) {
+    return this._integrationRepository.updateCustomInstanceDetailsByProvider(
+      orgId,
+      providerIdentifier,
+      customInstanceDetails
+    );
+  }
+
   updateOnCustomerName(org: string, id: string, name: string) {
     return this._integrationRepository.updateOnCustomerName(org, id, name);
   }
@@ -396,7 +408,8 @@ export class IntegrationService {
         const loadAnalytics = await integrationProvider.analytics(
           getIntegration.internalId,
           getIntegration.token,
-          +date
+          +date,
+          getIntegration
         );
         await ioRedis.set(
           `integration:${org.id}:${integration}:${date}`,

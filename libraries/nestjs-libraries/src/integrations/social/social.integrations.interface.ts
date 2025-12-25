@@ -26,7 +26,8 @@ export interface IAuthenticator {
   analytics?(
     id: string,
     accessToken: string,
-    date: number
+    date: number,
+    integration?: Integration
   ): Promise<AnalyticsData[]>;
   changeNickname?(
     id: string,

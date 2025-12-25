@@ -41,6 +41,7 @@ import {
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { uniqBy } from 'lodash';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -49,7 +50,8 @@ export class IntegrationsController {
     private _integrationManager: IntegrationManager,
     private _integrationService: IntegrationService,
     private _postService: PostsService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _thirdPartyService: ThirdPartyService
   ) {}
 
   private resolveFrontendUrl(req: Request) {
@@ -81,6 +83,30 @@ export class IntegrationsController {
     );
 
     return candidates.find((candidate) => allowed.has(candidate));
+  }
+
+  private async getXCredentials(orgId: string) {
+    const existing = await this._thirdPartyService.getIntegrationByIdentifier(
+      orgId,
+      'x_app'
+    );
+    if (!existing?.apiKey) {
+      return null;
+    }
+
+    try {
+      const decrypted = AuthService.fixedDecryption(existing.apiKey);
+      const parsed = JSON.parse(decrypted);
+      const apiKey = (parsed?.apiKey || parsed?.client_id || '').trim();
+      const apiSecret = (parsed?.apiSecret || parsed?.client_secret || '').trim();
+      if (apiKey && apiSecret) {
+        return { apiKey, apiSecret };
+      }
+    } catch {
+      // ignore invalid stored credentials
+    }
+
+    return null;
   }
   @Get('/')
   getIntegrations() {
@@ -229,6 +255,7 @@ export class IntegrationsController {
     @Param('integration') integration: string,
     @Query('refresh') refresh: string,
     @Query('externalUrl') externalUrl: string,
+    @GetOrgFromRequest() org: Organization,
     @Req() req: Request
   ) {
     if (
@@ -252,6 +279,12 @@ export class IntegrationsController {
     }
 
     try {
+      const xCredentials =
+        integration === 'x' ? await this.getXCredentials(org.id) : null;
+      if (integration === 'x' && !xCredentials) {
+        throw new Error('Missing X API credentials');
+      }
+
       const getExternalUrl = integrationProvider.externalUrl
         ? {
             ...(await integrationProvider.externalUrl(externalUrl)),
@@ -259,8 +292,18 @@ export class IntegrationsController {
           }
         : undefined;
 
+      const clientInformation =
+        getExternalUrl ||
+        (xCredentials
+          ? {
+              client_id: xCredentials.apiKey,
+              client_secret: xCredentials.apiSecret,
+              instanceUrl: '',
+            }
+          : undefined);
+
       const { codeVerifier, state, url } =
-        await integrationProvider.generateAuthUrl(getExternalUrl);
+        await integrationProvider.generateAuthUrl(clientInformation);
 
       if (refresh) {
         await ioRedis.set(`refresh:${state}`, refresh, 'EX', 300);
@@ -273,12 +316,14 @@ export class IntegrationsController {
       }
 
       await ioRedis.set(`login:${state}`, codeVerifier, 'EX', 300);
-      await ioRedis.set(
-        `external:${state}`,
-        JSON.stringify(getExternalUrl),
-        'EX',
-        300
-      );
+      if (clientInformation) {
+        await ioRedis.set(
+          `external:${state}`,
+          JSON.stringify(clientInformation),
+          'EX',
+          300
+        );
+      }
 
       return { url };
     } catch (err) {
@@ -448,9 +493,10 @@ export class IntegrationsController {
       await ioRedis.del(`login:${body.state}`);
     }
 
-    const details = integrationProvider.externalUrl
-      ? await ioRedis.get(`external:${body.state}`)
-      : undefined;
+    const details =
+      integrationProvider.externalUrl || integration === 'x'
+        ? await ioRedis.get(`external:${body.state}`)
+        : undefined;
 
     if (details) {
       await ioRedis.del(`external:${body.state}`);

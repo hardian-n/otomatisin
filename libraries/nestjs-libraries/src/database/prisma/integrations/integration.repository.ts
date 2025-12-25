@@ -429,7 +429,24 @@ export class IntegrationRepository {
                 id: group,
               },
             },
-          },
+        },
+    });
+  }
+
+  updateCustomInstanceDetailsByProvider(
+    orgId: string,
+    providerIdentifier: string,
+    customInstanceDetails: string
+  ) {
+    return this._integration.model.integration.updateMany({
+      where: {
+        organizationId: orgId,
+        providerIdentifier,
+        deletedAt: null,
+      },
+      data: {
+        customInstanceDetails,
+      },
     });
   }
 

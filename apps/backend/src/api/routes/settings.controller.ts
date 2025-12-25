@@ -9,6 +9,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.service';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
+import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 
 @ApiTags('Settings')
 @Controller('/settings')
@@ -16,7 +17,8 @@ export class SettingsController {
   constructor(
     private _starsService: StarsService,
     private _organizationService: OrganizationService,
-    private _thirdPartyService: ThirdPartyService
+    private _thirdPartyService: ThirdPartyService,
+    private _integrationService: IntegrationService
   ) {}
 
   @Get('/github')
@@ -175,6 +177,62 @@ export class SettingsController {
         username: botName,
         id: 'telegram_bot',
       }
+    );
+
+    return { ok: true };
+  }
+
+  @Get('/x')
+  async getXSettings(@GetOrgFromRequest() org: Organization) {
+    const existing = await this._thirdPartyService.getIntegrationByIdentifier(
+      org.id,
+      'x_app'
+    );
+    if (!existing?.apiKey) {
+      return { apiKey: '', apiSecret: '' };
+    }
+
+    let apiKey = '';
+    let apiSecret = '';
+    try {
+      const decrypted = AuthService.fixedDecryption(existing.apiKey);
+      const parsed = JSON.parse(decrypted);
+      apiKey = (parsed?.apiKey || parsed?.client_id || '').trim();
+      apiSecret = (parsed?.apiSecret || parsed?.client_secret || '').trim();
+    } catch {
+      apiKey = '';
+      apiSecret = '';
+    }
+
+    return { apiKey, apiSecret };
+  }
+
+  @Post('/x')
+  async saveXSettings(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: { apiKey?: string; apiSecret?: string }
+  ) {
+    const apiKey = (body.apiKey || '').trim();
+    const apiSecret = (body.apiSecret || '').trim();
+    if (!apiKey || !apiSecret) {
+      throw new Error('X API key and secret are required');
+    }
+
+    await this._thirdPartyService.saveIntegration(
+      org.id,
+      'x_app',
+      JSON.stringify({ apiKey, apiSecret }),
+      {
+        name: 'X App',
+        username: 'x_app',
+        id: 'x_app',
+      }
+    );
+
+    await this._integrationService.updateCustomInstanceDetailsByProvider(
+      org.id,
+      'x',
+      AuthService.fixedEncryption(JSON.stringify({ apiKey, apiSecret }))
     );
 
     return { ok: true };
