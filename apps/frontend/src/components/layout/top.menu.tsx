@@ -13,6 +13,7 @@ interface MenuItemInterface {
   role?: string[];
   hide?: boolean;
   requireBilling?: boolean;
+  adminOnly?: boolean;
 }
 
 export const useMenuItem = () => {
@@ -311,6 +312,35 @@ export const useMenuItem = () => {
       path: '/settings',
       role: ['ADMIN', 'USER', 'SUPERADMIN'],
     },
+    {
+      name: t('admin', 'Admin'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M12 2L20 5V11C20 16.25 16.75 20.25 12 22C7.25 20.25 4 16.25 4 11V5L12 2Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M9 12L11 14L15 10"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/admin/organizations',
+      adminOnly: true,
+    },
   ] satisfies MenuItemInterface[] as MenuItemInterface[];
 
   return {
@@ -322,6 +352,7 @@ export const useMenuItem = () => {
 
 export const TopMenu: FC = () => {
   const user = useUser();
+  const isAdmin = !!(user as any)?.admin;
   const { firstMenu, secondMenu } = useMenuItem();
   const { isGeneral, billingEnabled } = useVariables();
   return (
@@ -335,6 +366,9 @@ export const TopMenu: FC = () => {
             firstMenu
               .filter((f) => {
                 if (f.hide) {
+                  return false;
+                }
+                if (f.adminOnly && !isAdmin) {
                   return false;
                 }
                 if (f.requireBilling && !billingEnabled) {
@@ -362,6 +396,9 @@ export const TopMenu: FC = () => {
         {secondMenu
           .filter((f) => {
             if (f.hide) {
+              return false;
+            }
+            if (f.adminOnly && !isAdmin) {
               return false;
             }
             if (f.requireBilling && !billingEnabled) {

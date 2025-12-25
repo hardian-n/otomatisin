@@ -69,6 +69,21 @@ export class OrganizationService {
     return this._organizationRepository.getOrgByCustomerId(customerId);
   }
 
+  listAdminOrganizations(query: string | undefined, skip: number, take: number) {
+    return this._organizationRepository.listAdminOrganizations(
+      query,
+      skip,
+      take
+    );
+  }
+
+  updateTrialFlags(
+    orgId: string,
+    data: { allowTrial?: boolean; isTrailing?: boolean }
+  ) {
+    return this._organizationRepository.updateTrialFlags(orgId, data);
+  }
+
   async inviteTeamMember(orgId: string, body: AddTeamMemberDto) {
     const timeLimit = dayjs().add(1, 'hour').format('YYYY-MM-DD HH:mm:ss');
     const id = makeId(5);

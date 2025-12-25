@@ -260,6 +260,89 @@ export class OrganizationRepository {
     });
   }
 
+  listAdminOrganizations(query: string | undefined, skip: number, take: number) {
+    const search = query?.trim();
+    const where = search
+      ? {
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              users: {
+                some: {
+                  user: {
+                    OR: [
+                      {
+                        email: {
+                          contains: search,
+                          mode: 'insensitive',
+                        },
+                      },
+                      {
+                        name: {
+                          contains: search,
+                          mode: 'insensitive',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
+
+    return this._organization.model.organization.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take,
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        allowTrial: true,
+        isTrailing: true,
+        paymentId: true,
+        subscription: {
+          select: {
+            subscriptionTier: true,
+            totalChannels: true,
+            period: true,
+            isLifetime: true,
+            cancelAt: true,
+          },
+        },
+        users: {
+          where: {
+            role: Role.SUPERADMIN,
+          },
+          select: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+      },
+    });
+  }
+
   async getTeam(orgId: string) {
     return this._organization.model.organization.findUnique({
       where: {
@@ -310,6 +393,25 @@ export class OrganizationRepository {
           userId,
           organizationId: orgId,
         },
+      },
+    });
+  }
+
+  updateTrialFlags(
+    orgId: string,
+    data: { allowTrial?: boolean; isTrailing?: boolean }
+  ) {
+    return this._organization.model.organization.update({
+      where: {
+        id: orgId,
+      },
+      data: {
+        ...(data.allowTrial === undefined
+          ? {}
+          : { allowTrial: data.allowTrial }),
+        ...(data.isTrailing === undefined
+          ? {}
+          : { isTrailing: data.isTrailing }),
       },
     });
   }

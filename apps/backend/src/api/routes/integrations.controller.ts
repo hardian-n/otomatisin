@@ -30,6 +30,7 @@ import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { AuthTokenDetails } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { PlugDto } from '@gitroom/nestjs-libraries/dtos/plugs/plug.dto';
 import {
+  BadBody,
   NotEnoughScopes,
   RefreshToken,
 } from '@gitroom/nestjs-libraries/integrations/social.abstract';
@@ -507,19 +508,9 @@ export class IntegrationsController {
       await ioRedis.del(`refresh:${body.state}`);
     }
 
-    const {
-      error,
-      accessToken,
-      expiresIn,
-      refreshToken,
-      id,
-      name,
-      picture,
-      username,
-      additionalSettings,
-      // eslint-disable-next-line no-async-promise-executor
-    } = await new Promise<AuthTokenDetails>(async (res) => {
-      const auth = await integrationProvider.authenticate(
+    let authResult: AuthTokenDetails | string;
+    try {
+      authResult = await integrationProvider.authenticate(
         {
           code: body.code,
           codeVerifier: getCodeVerifier,
@@ -528,45 +519,46 @@ export class IntegrationsController {
         details ? JSON.parse(details) : undefined
       );
 
-      if (typeof auth === 'string') {
-        if (frontendUrl) {
-          // @ts-expect-error dynamic override per request
-          integrationProvider.frontendUrl = undefined;
-        }
-        return res({
-          error: auth,
-          accessToken: '',
-          id: '',
-          name: '',
-          picture: '',
-          username: '',
-          additionalSettings: [],
-        });
-      }
-
-      if (refresh && integrationProvider.reConnect) {
+      if (typeof authResult !== 'string' && refresh && integrationProvider.reConnect) {
         const newAuth = await integrationProvider.reConnect(
-          auth.id,
+          authResult.id,
           refresh,
-          auth.accessToken
+          authResult.accessToken
         );
-        if (frontendUrl) {
-          // @ts-expect-error dynamic override per request
-          integrationProvider.frontendUrl = undefined;
-        }
-        return res({ ...newAuth, refreshToken: body.refresh });
+        authResult = { ...newAuth, refreshToken: body.refresh };
       }
-
+    } catch (err) {
+      if (err instanceof NotEnoughScopes) {
+        throw err;
+      }
+      if (err instanceof BadBody) {
+        throw new NotEnoughScopes(err.message || 'Invalid provider response');
+      }
+      if (err instanceof RefreshToken) {
+        throw new NotEnoughScopes(err.message || 'Please reconnect the channel');
+      }
+      throw new HttpException('Failed to authenticate with provider', 502);
+    } finally {
       if (frontendUrl) {
         // @ts-expect-error dynamic override per request
         integrationProvider.frontendUrl = undefined;
       }
-      return res(auth);
-    });
-
-    if (error) {
-      throw new NotEnoughScopes(error);
     }
+
+    if (typeof authResult === 'string') {
+      throw new NotEnoughScopes(authResult);
+    }
+
+    const {
+      accessToken,
+      expiresIn,
+      refreshToken,
+      id,
+      name,
+      picture,
+      username,
+      additionalSettings,
+    } = authResult;
 
     if (!id) {
       throw new NotEnoughScopes('Invalid API key');

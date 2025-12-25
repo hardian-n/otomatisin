@@ -4,7 +4,7 @@ import {
   PrismaTransaction,
 } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
 import dayjs from 'dayjs';
-import { Organization } from '@prisma/client';
+import { Organization, Period, SubscriptionTier } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionRepository {
@@ -201,6 +201,43 @@ export class SubscriptionRepository {
     return this._subscription.model.subscription.findFirst({
       where: {
         organizationId,
+        deletedAt: null,
+      },
+    });
+  }
+
+  upsertAdminSubscription(
+    organizationId: string,
+    data: {
+      subscriptionTier: SubscriptionTier;
+      totalChannels: number;
+      period: Period;
+      isLifetime: boolean;
+      identifier?: string | null;
+      cancelAt?: Date | null;
+    }
+  ) {
+    return this._subscription.model.subscription.upsert({
+      where: {
+        organizationId,
+      },
+      update: {
+        subscriptionTier: data.subscriptionTier,
+        totalChannels: data.totalChannels,
+        period: data.period,
+        isLifetime: data.isLifetime,
+        identifier: data.identifier || null,
+        cancelAt: data.cancelAt ?? null,
+        deletedAt: null,
+      },
+      create: {
+        organizationId,
+        subscriptionTier: data.subscriptionTier,
+        totalChannels: data.totalChannels,
+        period: data.period,
+        isLifetime: data.isLifetime,
+        identifier: data.identifier || null,
+        cancelAt: data.cancelAt ?? null,
         deletedAt: null,
       },
     });

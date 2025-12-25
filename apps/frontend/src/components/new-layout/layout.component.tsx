@@ -68,13 +68,18 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
 
   if (!user) return null;
 
+  const isAdmin = !!(user as any)?.admin;
   const canShowMenuItem = (item: {
     name: string;
     role?: string[];
     hide?: boolean;
     requireBilling?: boolean;
+    adminOnly?: boolean;
   }) => {
     if (item.hide) {
+      return false;
+    }
+    if (item.adminOnly && !isAdmin) {
       return false;
     }
     if (item.requireBilling && !billingEnabled) {

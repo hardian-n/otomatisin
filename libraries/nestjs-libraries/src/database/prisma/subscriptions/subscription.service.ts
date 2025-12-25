@@ -3,7 +3,7 @@ import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions
 import { SubscriptionRepository } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.repository';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
-import { Organization } from '@prisma/client';
+import { Organization, Period, SubscriptionTier } from '@prisma/client';
 import dayjs from 'dayjs';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 
@@ -246,5 +246,98 @@ export class SubscriptionService {
       undefined,
       orgId
     );
+  }
+
+  private async applyTierChange(
+    organizationId: string,
+    fromTier: SubscriptionTier,
+    toTier: SubscriptionTier,
+    totalChannels: number
+  ) {
+    const from = pricing[fromTier] || pricing.FREE;
+    const to = pricing[toTier] || pricing.FREE;
+
+    const currentTotalChannels = (
+      await this._integrationService.getIntegrationsList(organizationId)
+    ).filter((f) => !f.disabled);
+
+    if (currentTotalChannels.length > totalChannels) {
+      await this._integrationService.disableIntegrations(
+        organizationId,
+        currentTotalChannels.length - totalChannels
+      );
+    }
+
+    if (from.team_members && !to.team_members) {
+      await this._organizationService.disableOrEnableNonSuperAdminUsers(
+        organizationId,
+        true
+      );
+    }
+
+    if (!from.team_members && to.team_members) {
+      await this._organizationService.disableOrEnableNonSuperAdminUsers(
+        organizationId,
+        false
+      );
+    }
+
+    if (toTier === 'FREE') {
+      await this._integrationService.changeActiveCron(organizationId);
+    }
+  }
+
+  async adminUpdateSubscription(
+    organizationId: string,
+    data: {
+      subscriptionTier: SubscriptionTier;
+      totalChannels?: number;
+      period?: Period;
+      isLifetime?: boolean;
+      allowTrial?: boolean;
+      isTrailing?: boolean;
+    }
+  ) {
+    const org = await this._organizationService.getOrgById(organizationId);
+    if (!org) {
+      throw new Error('Organization not found');
+    }
+
+    const current =
+      await this._subscriptionRepository.getSubscription(organizationId);
+    const fromTier = current?.subscriptionTier || 'FREE';
+    const resolvedTotalChannels = Math.max(
+      0,
+      typeof data.totalChannels === 'number'
+        ? data.totalChannels
+        : pricing[data.subscriptionTier]?.channel || 0
+    );
+    const period = data.period || current?.period || 'MONTHLY';
+    const isLifetime = data.isLifetime ?? current?.isLifetime ?? false;
+
+    await this.applyTierChange(
+      organizationId,
+      fromTier,
+      data.subscriptionTier,
+      resolvedTotalChannels
+    );
+
+    await this._subscriptionRepository.upsertAdminSubscription(organizationId, {
+      subscriptionTier: data.subscriptionTier,
+      totalChannels: resolvedTotalChannels,
+      period,
+      isLifetime,
+      identifier: current?.identifier || 'manual',
+      cancelAt: current?.cancelAt || null,
+    });
+
+    if (data.allowTrial !== undefined || data.isTrailing !== undefined) {
+      await this._organizationService.updateTrialFlags(organizationId, {
+        allowTrial: data.allowTrial,
+        isTrailing: data.isTrailing,
+      });
+    }
+
+    return { success: true };
   }
 }
