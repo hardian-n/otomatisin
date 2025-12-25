@@ -433,7 +433,7 @@ export const AddProviderComponent: FC<{
   return (
     <div className="w-full max-h-[80vh] overflow-y-auto flex flex-col gap-[20px] rounded-[4px] relative pr-[4px]">
       <div className="flex flex-col">
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-[10px] justify-items-center justify-center">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[10px] justify-items-center justify-center">
           {social.map((item) => (
             <div
               key={item.identifier}
