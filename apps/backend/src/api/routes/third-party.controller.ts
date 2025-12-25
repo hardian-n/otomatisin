@@ -37,17 +37,25 @@ export class ThirdPartyController {
         await this._thirdPartyManager.getAllThirdPartiesByOrganization(
           organization.id
         )
-      ).map((thirdParty) => {
-        const { description, fields, position, title, identifier } =
-          this._thirdPartyManager.getThirdPartyByName(thirdParty.identifier);
-        return {
-          ...thirdParty,
-          title,
-          position,
-          fields,
-          description,
-        };
-      })
+      )
+        .map((thirdParty) => {
+          const metadata = this._thirdPartyManager.getThirdPartyByName(
+            thirdParty.identifier
+          );
+          if (!metadata) {
+            return null;
+          }
+
+          const { description, fields, position, title } = metadata;
+          return {
+            ...thirdParty,
+            title,
+            position,
+            fields,
+            description,
+          };
+        })
+        .filter((item) => item !== null)
     );
   }
 
