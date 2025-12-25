@@ -163,8 +163,8 @@ export const Component: FC<{
             <div
               className={clsx(
                 !modal.removeLayout && 'gap-[40px] p-[32px]',
-                'bg-newBgColorInner mx-auto flex flex-col w-fit rounded-[24px] relative',
-                modal.size ? '' : 'min-w-[600px]'
+                'bg-newBgColorInner mx-auto flex flex-col rounded-[24px] relative w-[calc(100%-32px)] sm:w-fit',
+                modal.size ? '' : 'sm:min-w-[600px]'
               )}
               {...(modal.size && { style: { width: modal.size } })}
               onClick={(e) => e.stopPropagation()}
