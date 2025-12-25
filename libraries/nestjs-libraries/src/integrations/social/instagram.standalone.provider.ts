@@ -165,12 +165,12 @@ export class InstagramStandaloneProvider
     );
   }
 
-  async analytics(id: string, accessToken: string, date: number) {
-    return instagramProvider.analytics(
-      id,
-      accessToken,
-      date,
-      'graph.instagram.com'
-    );
+  async analytics(
+    id: string,
+    accessToken: string,
+    date: number,
+    integration?: Integration
+  ) {
+    return instagramProvider.analytics(id, accessToken, date, integration);
   }
 }
