@@ -31,6 +31,10 @@ export class ThirdPartyManager {
       Reflect.getMetadata('third:party', ThirdPartyAbstract) || []
     ).find((p: any) => p.identifier === identifier);
 
+    if (!thirdParty) {
+      return undefined;
+    }
+
     return { ...thirdParty, instance: this._moduleRef.get(thirdParty.target) };
   }
 
