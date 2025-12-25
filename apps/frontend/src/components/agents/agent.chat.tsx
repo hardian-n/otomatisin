@@ -36,7 +36,10 @@ import { ExistingDataContextProvider } from '@gitroom/frontend/components/launch
 export const AgentChat: FC = () => {
   const { backendUrl } = useVariables();
   const params = useParams<{ id: string }>();
-  const { properties } = useContext(PropertiesContext);
+  const context = useContext(PropertiesContext);
+  const properties = Array.isArray(context?.properties)
+    ? context.properties
+    : [];
 
   return (
     <CopilotKit
@@ -141,7 +144,10 @@ const Message: FC<UserMessageProps> = (props) => {
 const NewInput: FC<InputProps> = (props) => {
   const [media, setMedia] = useState([] as { path: string; id: string }[]);
   const [value, setValue] = useState('');
-  const { properties } = useContext(PropertiesContext);
+  const context = useContext(PropertiesContext);
+  const properties = Array.isArray(context?.properties)
+    ? context.properties
+    : [];
   return (
     <>
       <MediaPortal
@@ -275,11 +281,17 @@ const OpenModal: FC<{
   };
 }> = ({ args, respond }) => {
   const modals = useModals();
-  const { properties } = useContext(PropertiesContext);
+  const context = useContext(PropertiesContext);
+  const properties = Array.isArray(context?.properties)
+    ? context.properties
+    : [];
   const startModal = useCallback(async () => {
     for (const integration of args.list) {
       await new Promise((res) => {
         const group = makeId(10);
+        const integrationInfo = properties.find(
+          (p) => p.id === integration.integrationId
+        );
         modals.openModal({
           id: 'add-edit-modal',
           closeOnClickOutside: false,
@@ -298,8 +310,7 @@ const OpenModal: FC<{
                 group,
                 integration: integration.integrationId,
                 integrationPicture:
-                  properties.find((p) => p.id === integration.integrationId)
-                    .picture || '',
+                  integrationInfo?.picture || '',
                 settings: integration.settings || {},
                 posts: integration.posts.map((p) => ({
                   approvedSubmitForOrder: 'NO',
@@ -310,9 +321,7 @@ const OpenModal: FC<{
                   settings: JSON.stringify(integration.settings || {}),
                   group,
                   integrationId: integration.integrationId,
-                  integration: properties.find(
-                    (p) => p.id === integration.integrationId
-                  ),
+                  integration: integrationInfo,
                   publishDate: dayjs.utc(integration.date).toISOString(),
                   image: p.attachments.map((a) => ({
                     id: a.id,
