@@ -4,15 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
-
-const isGlobalTrialEnabled = () => {
-  const raw = process.env.GLOBAL_TRIAL_ENABLED;
-  if (!raw) {
-    return true;
-  }
-  const value = raw.trim().toLowerCase();
-  return !['0', 'false', 'no', 'off'].includes(value);
-};
+import { GlobalSettingsService } from '@gitroom/nestjs-libraries/database/prisma/settings/global-settings.service';
 
 const adminOrganizationSelect = {
   id: true,
@@ -60,8 +52,13 @@ export class OrganizationRepository {
   constructor(
     private _organization: PrismaRepository<'organization'>,
     private _userOrg: PrismaRepository<'userOrganization'>,
-    private _user: PrismaRepository<'user'>
+    private _user: PrismaRepository<'user'>,
+    private _globalSettings: GlobalSettingsService
   ) {}
+
+  private isGlobalTrialEnabled() {
+    return this._globalSettings.getGlobalTrialEnabled();
+  }
 
   getOrgByApiKey(api: string) {
     return this._organization.model.organization.findFirst({
@@ -265,7 +262,7 @@ export class OrganizationRepository {
     ip: string,
     userAgent: string
   ) {
-    const trialEnabled = isGlobalTrialEnabled();
+    const trialEnabled = this.isGlobalTrialEnabled();
     return this._organization.model.organization.create({
       data: {
         name: body.company,
@@ -421,7 +418,7 @@ export class OrganizationRepository {
     orgId: string,
     data: { allowTrial?: boolean; isTrailing?: boolean }
   ) {
-    if (!isGlobalTrialEnabled()) {
+    if (!this.isGlobalTrialEnabled()) {
       return this._organization.model.organization.update({
         where: {
           id: orgId,

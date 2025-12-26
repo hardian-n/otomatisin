@@ -46,6 +46,9 @@ export default function AdminOrganizationsPage() {
   const [organizations, setOrganizations] = useState<AdminOrganization[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [globalTrialEnabled, setGlobalTrialEnabled] = useState(true);
+  const [globalTrialLoading, setGlobalTrialLoading] = useState(false);
+  const [globalTrialSaving, setGlobalTrialSaving] = useState(false);
   const [selected, setSelected] = useState<AdminOrganization | null>(null);
   const [form, setForm] = useState({
     subscriptionTier: 'FREE' as SubscriptionSummary['subscriptionTier'],
@@ -75,9 +78,26 @@ export default function AdminOrganizationsPage() {
     }
   }, [appliedQuery]);
 
+  const loadGlobalTrial = useCallback(async () => {
+    setGlobalTrialLoading(true);
+    try {
+      const res = await fetcher('/admin/settings/trial');
+      const data = (await res.json()) as { enabled?: boolean };
+      setGlobalTrialEnabled(!!data?.enabled);
+    } catch (err: any) {
+      toaster.show(err?.message || 'Failed to load global trial', 'warning');
+    } finally {
+      setGlobalTrialLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadOrganizations();
   }, [loadOrganizations]);
+
+  useEffect(() => {
+    loadGlobalTrial();
+  }, [loadGlobalTrial]);
 
   const updateFormFromOrg = useCallback((org: AdminOrganization | null) => {
     if (!org) {
@@ -150,6 +170,29 @@ export default function AdminOrganizationsPage() {
     }
   }, [selected, form, loadOrganizations]);
 
+  const onToggleGlobalTrial = useCallback(async () => {
+    const nextValue = !globalTrialEnabled;
+    setGlobalTrialSaving(true);
+    try {
+      await fetcher('/admin/settings/trial', {
+        method: 'POST',
+        body: JSON.stringify({ enabled: nextValue }),
+      });
+      setGlobalTrialEnabled(nextValue);
+      toaster.show(
+        nextValue
+          ? 'Global trial enabled'
+          : 'Global trial disabled and all trials stopped',
+        'success'
+      );
+      await loadOrganizations();
+    } catch (err: any) {
+      toaster.show(err?.message || 'Failed to update global trial', 'warning');
+    } finally {
+      setGlobalTrialSaving(false);
+    }
+  }, [globalTrialEnabled, loadOrganizations]);
+
   const selectedId = selected?.id;
   const hasSelection = !!selectedId;
   const totalChannelsValue = useMemo(
@@ -210,6 +253,36 @@ export default function AdminOrganizationsPage() {
                 Reset
               </Button>
             </div>
+          </div>
+        </div>
+
+        <div className="border border-newTableBorder rounded-[12px] p-[12px] flex flex-col md:flex-row md:items-center md:justify-between gap-[12px]">
+          <div>
+            <div className="text-[14px] font-[600]">Global Trial</div>
+            <div className="text-[12px] text-customColor18">
+              When disabled, all organization trials are turned off and new orgs cannot start a trial.
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-[12px]">
+            <div className="text-[13px]">
+              Status:{' '}
+              <span className="font-[600]">
+                {globalTrialLoading
+                  ? 'Loading...'
+                  : globalTrialEnabled
+                    ? 'Enabled'
+                    : 'Disabled'}
+              </span>
+            </div>
+            <Button
+              type="button"
+              secondary={globalTrialEnabled}
+              loading={globalTrialSaving}
+              disabled={globalTrialLoading}
+              onClick={onToggleGlobalTrial}
+            >
+              {globalTrialEnabled ? 'Disable trial' : 'Enable trial'}
+            </Button>
           </div>
         </div>
 
