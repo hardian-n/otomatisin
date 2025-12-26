@@ -7,7 +7,7 @@ import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { BillingSubscribeDto } from '@gitroom/nestjs-libraries/dtos/billing/billing.subscribe.dto';
 import { capitalize, groupBy } from 'lodash';
 import { MessagesService } from '@gitroom/nestjs-libraries/database/prisma/marketplace/messages.service';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { TrackService } from '@gitroom/nestjs-libraries/track/track.service';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
@@ -24,7 +24,8 @@ export class StripeService {
     private _organizationService: OrganizationService,
     private _userService: UsersService,
     private _messagesService: MessagesService,
-    private _trackService: TrackService
+    private _trackService: TrackService,
+    private _plansService: PlansService
   ) {}
   validateRequest(rawBody: Buffer, signature: string, endpointSecret: string) {
     return stripe.webhooks.constructEvent(rawBody, signature, endpointSecret);
@@ -140,11 +141,12 @@ export class StripeService {
       return { ok: false };
     }
 
+    const plan = await this._plansService.getPlanByTier(billing);
     return this._subscriptionService.createOrUpdateSubscription(
       event.data.object.status !== 'active',
       uniqueId,
       event.data.object.customer as string,
-      pricing[billing].channel!,
+      plan.pricing.channel!,
       billing,
       period,
       event.data.object.cancel_at
@@ -168,11 +170,12 @@ export class StripeService {
       return { ok: false };
     }
 
+    const plan = await this._plansService.getPlanByTier(billing);
     return this._subscriptionService.createOrUpdateSubscription(
       event.data.object.status !== 'active',
       uniqueId,
       event.data.object.customer as string,
-      pricing[billing].channel!,
+      plan.pricing.channel!,
       billing,
       period,
       event.data.object.cancel_at
@@ -228,7 +231,8 @@ export class StripeService {
   async prorate(organizationId: string, body: BillingSubscribeDto) {
     const org = await this._organizationService.getOrgById(organizationId);
     const customer = await this.createOrGetCustomer(org!);
-    const priceData = pricing[body.billing];
+    const plan = await this._plansService.getPlanByTier(body.billing);
+    const priceData = plan.pricing;
     const allProducts = await stripe.products.list({
       active: true,
       expand: ['data.prices'],
@@ -634,7 +638,8 @@ export class StripeService {
     allowTrial: boolean
   ) {
     const id = makeId(10);
-    const priceData = pricing[body.billing];
+    const plan = await this._plansService.getPlanByTier(body.billing);
+    const priceData = plan.pricing;
     const org = await this._organizationService.getOrgById(organizationId);
     const customer = await this.createOrGetCustomer(org!);
     const allProducts = await stripe.products.list({
@@ -785,7 +790,7 @@ export class StripeService {
       }
 
       const nextPackage = !getCurrentSubscription ? 'STANDARD' : 'PRO';
-      const findPricing = pricing[nextPackage];
+      const findPricing = await this._plansService.getPlanByTier(nextPackage);
 
       await this._subscriptionService.createOrUpdateSubscription(
         false,
@@ -793,7 +798,7 @@ export class StripeService {
         organizationId,
         getCurrentSubscription?.subscriptionTier === 'PRO'
           ? getCurrentSubscription.totalChannels + 5
-          : findPricing.channel!,
+          : findPricing.pricing.channel!,
         nextPackage,
         'MONTHLY',
         null,

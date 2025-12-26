@@ -6,13 +6,15 @@ import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/o
 import { Organization, Period, SubscriptionTier } from '@prisma/client';
 import dayjs from 'dayjs';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 
 @Injectable()
 export class SubscriptionService {
   constructor(
     private readonly _subscriptionRepository: SubscriptionRepository,
     private readonly _integrationService: IntegrationService,
-    private readonly _organizationService: OrganizationService
+    private readonly _organizationService: OrganizationService,
+    private readonly _plansService: PlansService
   ) {}
 
   getSubscriptionByOrganizationId(organizationId: string) {
@@ -220,11 +222,12 @@ export class SubscriptionService {
   }
 
   async lifeTime(orgId: string, identifier: string, subscription: any) {
+    const plan = await this._plansService.getPlanByTier(subscription);
     return this.createOrUpdateSubscription(
       false,
       identifier,
       identifier,
-      pricing[subscription].channel!,
+      plan.pricing.channel!,
       subscription,
       'YEARLY',
       null,
@@ -234,12 +237,13 @@ export class SubscriptionService {
   }
 
   async addSubscription(orgId: string, userId: string, subscription: any) {
+    const plan = await this._plansService.getPlanByTier(subscription);
     await this._subscriptionRepository.setCustomerId(orgId, userId);
     return this.createOrUpdateSubscription(
       false,
       makeId(5),
       userId,
-      pricing[subscription].channel!,
+      plan.pricing.channel!,
       subscription,
       'MONTHLY',
       null,
@@ -306,11 +310,12 @@ export class SubscriptionService {
     const current =
       await this._subscriptionRepository.getSubscription(organizationId);
     const fromTier = current?.subscriptionTier || 'FREE';
+    const plan = await this._plansService.getPlanByTier(data.subscriptionTier);
     const resolvedTotalChannels = Math.max(
       0,
       typeof data.totalChannels === 'number'
         ? data.totalChannels
-        : pricing[data.subscriptionTier]?.channel || 0
+        : plan.pricing.channel || 0
     );
     const period = data.period || current?.period || 'MONTHLY';
     const isLifetime = data.isLifetime ?? current?.isLifetime ?? false;

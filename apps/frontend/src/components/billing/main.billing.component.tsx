@@ -11,7 +11,10 @@ import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import dayjs from 'dayjs';
 import clsx from 'clsx';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  pricing,
+  PricingInnerInterface,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { FAQComponent } from '@gitroom/frontend/components/billing/faq.component';
 import { useSWRConfig } from 'swr';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
@@ -30,9 +33,29 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { FinishTrial } from '@gitroom/frontend/components/billing/finish.trial';
 import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
 
+type PlanTier = 'FREE' | 'STANDARD' | 'TEAM' | 'PRO' | 'ULTIMATE';
+
+type PlanConfig = {
+  tier: PlanTier;
+  visible: boolean;
+  pricing: PricingInnerInterface;
+};
+
+const buildDefaultPlans = (): PlanConfig[] =>
+  (Object.entries(pricing) as [PlanTier, PricingInnerInterface][]).map(
+    ([tier, value]) => ({
+      tier,
+      visible: true,
+      pricing: {
+        ...value,
+        current: tier,
+      },
+    })
+  );
+
 export const Prorate: FC<{
   period: 'MONTHLY' | 'YEARLY';
-  pack: 'STANDARD' | 'PRO';
+  pack: 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE';
 }> = (props) => {
   const { period, pack } = props;
   const t = useT();
@@ -77,12 +100,12 @@ export const Prorate: FC<{
   );
 };
 export const Features: FC<{
-  pack: 'FREE' | 'STANDARD' | 'PRO';
+  plan: PricingInnerInterface;
 }> = (props) => {
-  const { pack } = props;
+  const { plan } = props;
   const features = useMemo(() => {
-    const currentPricing = pricing[pack];
-    const channelsOr = currentPricing.channel;
+    const currentPricing = plan;
+    const channelsOr = currentPricing.channel || 0;
     const list = [];
     list.push(`${channelsOr} ${channelsOr === 1 ? 'channel' : 'channels'}`);
     list.push(
@@ -225,6 +248,7 @@ export const MainBillingComponent: FC<{
   const track = useTrack();
   const t = useT();
   const queryParams = useSearchParams();
+  const [plans, setPlans] = useState<PlanConfig[]>(buildDefaultPlans());
   const [finishTrial, setFinishTrial] = useState(
     !!queryParams.get('finishTrial')
   );
@@ -242,6 +266,20 @@ export const MainBillingComponent: FC<{
   const [initialChannels, setInitialChannels] = useState(
     sub?.totalChannels || 1
   );
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const res = await fetch('/billing/plans');
+        const data = await res.json();
+        if (Array.isArray(data?.plans)) {
+          setPlans(data.plans as PlanConfig[]);
+        }
+      } catch {
+        setPlans(buildDefaultPlans());
+      }
+    };
+    loadPlans();
+  }, []);
   useEffect(() => {
     if (initialChannels !== sub?.totalChannels) {
       setInitialChannels(sub?.totalChannels || 1);
@@ -270,8 +308,16 @@ export const MainBillingComponent: FC<{
     }
     return subscription?.subscriptionTier;
   }, [subscription, initialChannels, monthlyOrYearly, period]);
+  const planMap = useMemo(() => {
+    return new Map(plans.map((plan) => [plan.tier, plan]));
+  }, [plans]);
+  const visiblePlans = useMemo(() => {
+    return plans.filter(
+      (plan) => plan.visible && (!isGeneral || plan.tier !== 'FREE')
+    );
+  }, [plans, isGeneral]);
   const moveToCheckout = useCallback(
-    (billing: 'STANDARD' | 'PRO' | 'FREE', reactivate = false) =>
+    (billing: PlanTier, reactivate = false) =>
       async () => {
         if (reactivate) {
           setLoading(true);
@@ -297,9 +343,15 @@ export const MainBillingComponent: FC<{
         }
 
         const messages = [];
+        const nextPlan = planMap.get(billing);
+        const currentPlan = planMap.get(
+          (subscription?.subscriptionTier as PlanTier) || 'FREE'
+        );
         if (
-          !pricing[billing].team_members &&
-          pricing[subscription?.subscriptionTier!]?.team_members
+          nextPlan &&
+          currentPlan &&
+          !nextPlan.pricing.team_members &&
+          currentPlan.pricing.team_members
         ) {
           messages.push(
             `Your team members will be removed from your organization`
@@ -392,11 +444,12 @@ export const MainBillingComponent: FC<{
           })
         ).json();
         if (url) {
+          const trackingValue =
+            nextPlan?.pricing[
+              monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
+            ] ?? 0;
           await track(TrackEnum.InitiateCheckout, {
-            value:
-              pricing[billing][
-                monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
-              ],
+            value: trackingValue,
           });
           window.location.href = url;
           return;
@@ -455,9 +508,10 @@ export const MainBillingComponent: FC<{
 
       {finishTrial && <FinishTrial close={() => setFinishTrial(false)} />}
       <div className="flex flex-col lg:flex-row gap-[16px] text-center lg:text-left">
-        {Object.entries(pricing)
-          .filter((f) => !isGeneral || f[0] !== 'FREE')
-          .map(([name, values]) => (
+        {visiblePlans.map((plan) => {
+          const name = plan.tier;
+          const values = plan.pricing;
+          return (
             <div
               key={name}
               className="flex-1 bg-sixth border border-customColor6 rounded-[4px] p-[16px] sm:p-[20px] lg:p-[24px] gap-[16px] flex flex-col items-center lg:items-stretch"
@@ -470,13 +524,12 @@ export const MainBillingComponent: FC<{
                     ? values.year_price
                     : values.month_price}
                 </div>
-                <div className={`text-[14px] text-customColor18`}>
+                <div className="text-[14px] text-customColor18">
                   {monthlyOrYearly === 'on' ? '/year' : '/month'}
                 </div>
               </div>
               <div className="text-[14px] flex flex-col sm:flex-row items-center sm:items-start gap-[10px]">
-                {currentPackage === name.toUpperCase() &&
-                subscription?.cancelAt ? (
+                {currentPackage === name && subscription?.cancelAt ? (
                   <div className="gap-[3px] flex flex-col">
                     <div>
                       <Button
@@ -494,30 +547,24 @@ export const MainBillingComponent: FC<{
                   <Button
                     loading={loading}
                     disabled={
-                      (!!subscription?.cancelAt &&
-                        name.toUpperCase() === 'FREE') ||
-                      currentPackage === name.toUpperCase()
+                      (!!subscription?.cancelAt && name === 'FREE') ||
+                      currentPackage === name
                     }
                     className={clsx(
-                      subscription &&
-                        name.toUpperCase() === 'FREE' &&
-                        '!bg-red-500'
+                      subscription && name === 'FREE' && '!bg-red-500'
                     )}
-                    onClick={moveToCheckout(
-                      name.toUpperCase() as 'STANDARD' | 'PRO'
-                    )}
+                    onClick={moveToCheckout(name)}
                   >
-                    {currentPackage === name.toUpperCase()
+                    {currentPackage === name
                       ? 'Current Plan'
-                      : name.toUpperCase() === 'FREE'
+                      : name === 'FREE'
                       ? subscription?.cancelAt
                         ? `Downgrade on ${dayjs
                             .utc(subscription?.cancelAt)
                             .local()
                             .format('D MMM, YYYY')}`
                         : 'Cancel subscription'
-                      : // @ts-ignore
-                      (user?.tier === 'FREE' ||
+                      : (user?.tier === 'FREE' ||
                           user?.tier?.current === 'FREE') &&
                         user.allowTrial
                       ? t('start_7_days_free_trial', 'Start 7 days free trial')
@@ -525,20 +572,19 @@ export const MainBillingComponent: FC<{
                   </Button>
                 )}
                 {subscription &&
-                  currentPackage !== name.toUpperCase() &&
+                  currentPackage !== name &&
                   name !== 'FREE' &&
                   !!name && (
                     <Prorate
                       period={monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY'}
-                      pack={name.toUpperCase() as 'STANDARD' | 'PRO'}
+                      pack={name as 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE'}
                     />
                   )}
               </div>
-              <Features
-                pack={name.toUpperCase() as 'FREE' | 'STANDARD' | 'PRO'}
-              />
+              <Features plan={values} />
             </div>
-          ))}
+          );
+        })}
       </div>
       {!subscription?.id && <PurchaseCrypto />}
       {!!subscription?.id && (

@@ -4,12 +4,13 @@ import Link from 'next/link';
 import clsx from 'clsx';
 
 type AdminNavProps = {
-  active: 'organizations' | 'users';
+  active: 'organizations' | 'users' | 'plans';
 };
 
 const items = [
   { key: 'organizations', label: 'Organizations', href: '/admin/organizations' },
   { key: 'users', label: 'Users', href: '/admin/users' },
+  { key: 'plans', label: 'Plans', href: '/admin/plans' },
 ] as const;
 
 export const AdminNav = ({ active }: AdminNavProps) => {

@@ -8,6 +8,8 @@ import { StarsService } from '@gitroom/nestjs-libraries/database/prisma/stars/st
 import { StarsRepository } from '@gitroom/nestjs-libraries/database/prisma/stars/stars.repository';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { SubscriptionRepository } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.repository';
+import { PlanOverrideRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-override.repository';
+import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
@@ -59,6 +61,8 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
     StarsRepository,
     SubscriptionService,
     SubscriptionRepository,
+    PlanOverrideRepository,
+    PlansService,
     NotificationService,
     NotificationsRepository,
     WebhooksRepository,

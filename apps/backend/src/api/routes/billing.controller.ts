@@ -10,6 +10,7 @@ import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/n
 import { Request } from 'express';
 import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
+import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 
 @ApiTags('Billing')
 @Controller('/billing')
@@ -18,7 +19,8 @@ export class BillingController {
     private _subscriptionService: SubscriptionService,
     private _stripeService: StripeService,
     private _notificationService: NotificationService,
-    private _nowpayments: Nowpayments
+    private _nowpayments: Nowpayments,
+    private _plansService: PlansService
   ) {}
 
   @Get('/check/:id')
@@ -93,6 +95,13 @@ export class BillingController {
   @Get('/')
   getCurrentBilling(@GetOrgFromRequest() org: Organization) {
     return this._subscriptionService.getSubscriptionByOrganizationId(org.id);
+  }
+
+  @Get('/plans')
+  async getPlans(@GetOrgFromRequest() org: Organization) {
+    return {
+      plans: await this._plansService.listPlans(false),
+    };
   }
 
   @Post('/cancel')
