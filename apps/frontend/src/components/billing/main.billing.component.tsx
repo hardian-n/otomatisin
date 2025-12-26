@@ -133,7 +133,7 @@ export const Features: FC<{
       list.push(`${currentPricing?.generate_videos} AI Videos per month`);
     }
     return list;
-  }, [pack]);
+  }, [plan]);
   return (
     <div className="flex flex-col gap-[10px] justify-center text-[16px] text-customColor18">
       {features.map((feature) => (
