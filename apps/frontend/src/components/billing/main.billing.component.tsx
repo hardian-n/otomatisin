@@ -564,8 +564,7 @@ export const MainBillingComponent: FC<{
                             .local()
                             .format('D MMM, YYYY')}`
                         : 'Cancel subscription'
-                      : (user?.tier === 'FREE' ||
-                          user?.tier?.current === 'FREE') &&
+                      : user?.tier?.current === 'FREE' &&
                         user.allowTrial
                       ? t('start_7_days_free_trial', 'Start 7 days free trial')
                       : 'Purchase'}
