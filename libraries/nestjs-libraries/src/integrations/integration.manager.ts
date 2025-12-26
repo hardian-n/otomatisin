@@ -61,12 +61,28 @@ export const socialIntegrationList: SocialProvider[] = [
   // new MastodonCustomProvider(),
 ];
 
+const getEnabledSocialIntegrationIds = () => {
+  const raw = process.env.ENABLED_SOCIAL_INTEGRATIONS;
+  if (!raw) {
+    return null;
+  }
+  const enabled = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  return enabled.length ? new Set(enabled) : null;
+};
+
 @Injectable()
 export class IntegrationManager {
   async getAllIntegrations() {
+    const enabled = getEnabledSocialIntegrationIds();
+    const socials = enabled
+      ? socialIntegrationList.filter((p) => enabled.has(p.identifier))
+      : socialIntegrationList;
     return {
       social: await Promise.all(
-        socialIntegrationList.map(async (p) => ({
+        socials.map(async (p) => ({
           name: p.name,
           identifier: p.identifier,
           toolTip: p.toolTip,
@@ -150,7 +166,11 @@ export class IntegrationManager {
   }
 
   getAllowedSocialsIntegrations() {
-    return socialIntegrationList.map((p) => p.identifier);
+    const enabled = getEnabledSocialIntegrationIds();
+    const socials = enabled
+      ? socialIntegrationList.filter((p) => enabled.has(p.identifier))
+      : socialIntegrationList;
+    return socials.map((p) => p.identifier);
   }
   getSocialIntegration(integration: string): SocialProvider {
     return socialIntegrationList.find((i) => i.identifier === integration)!;
