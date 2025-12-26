@@ -29,6 +29,10 @@ export class UsersService {
     return this._usersRepository.getUserByProvider(providerId, provider);
   }
 
+  listAdminOwners(query: string | undefined, skip: number, take: number) {
+    return this._usersRepository.listAdminOwners(query, skip, take);
+  }
+
   activateUser(id: string) {
     return this._usersRepository.activateUser(id);
   }

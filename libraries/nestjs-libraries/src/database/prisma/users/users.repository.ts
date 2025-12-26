@@ -1,6 +1,6 @@
 import { PrismaRepository } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { Provider } from '@prisma/client';
+import { Prisma, Provider, Role } from '@prisma/client';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { ItemsDto } from '@gitroom/nestjs-libraries/dtos/marketplace/items.dto';
 import { allTagsOptions } from '@gitroom/nestjs-libraries/database/prisma/marketplace/tags.list';
@@ -10,6 +10,72 @@ import { EmailNotificationsDto } from '@gitroom/nestjs-libraries/dtos/users/emai
 @Injectable()
 export class UsersRepository {
   constructor(private _user: PrismaRepository<'user'>) {}
+
+  listAdminOwners(query: string | undefined, skip: number, take: number) {
+    const search = query?.trim();
+    const where: Prisma.UserWhereInput = {
+      organizations: {
+        some: {
+          role: Role.SUPERADMIN,
+        },
+      },
+      ...(search
+        ? {
+            OR: [
+              {
+                email: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                name: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                id: {
+                  contains: search,
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    return this._user.model.user.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        providerName: true,
+        activated: true,
+        isSuperAdmin: true,
+        createdAt: true,
+        lastOnline: true,
+        organizations: {
+          where: {
+            role: Role.SUPERADMIN,
+          },
+          select: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 
   getImpersonateUser(name: string) {
     return this._user.model.user.findMany({

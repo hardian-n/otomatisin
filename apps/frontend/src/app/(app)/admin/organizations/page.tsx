@@ -9,6 +9,7 @@ import { Select } from '@gitroom/react/form/select';
 import { Button } from '@gitroom/react/form/button';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { AdminNav } from '@gitroom/frontend/components/admin/admin.nav';
 
 type SubscriptionSummary = {
   subscriptionTier: 'FREE' | 'STANDARD' | 'TEAM' | 'PRO' | 'ULTIMATE';
@@ -181,6 +182,7 @@ export default function AdminOrganizationsPage() {
               Manage subscription tiers per organization without changing the existing flow.
             </div>
           </div>
+          <AdminNav active="organizations" />
           <div className="flex flex-col sm:flex-row gap-[12px]">
             <Input
               label="Search"

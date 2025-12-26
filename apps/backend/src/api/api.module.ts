@@ -43,6 +43,7 @@ import { InboxPollSchedulerService } from '@gitroom/backend/services/inbox/inbox
 import { InboxPollingService } from '@gitroom/backend/services/inbox/inbox.polling.service';
 import { TelegramInboxService } from '@gitroom/backend/services/inbox/telegram.inbox.service';
 import { AdminOrganizationsController } from '@gitroom/backend/api/routes/admin.organizations.controller';
+import { AdminUsersController } from '@gitroom/backend/api/routes/admin.users.controller';
 
 const authenticatedController = [
   UsersController,
@@ -65,6 +66,7 @@ const authenticatedController = [
   AutoreplyController,
   InboxController,
   AdminOrganizationsController,
+  AdminUsersController,
 ];
 @Module({
   imports: [UploadModule],
