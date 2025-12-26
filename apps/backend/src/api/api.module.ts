@@ -44,6 +44,7 @@ import { InboxPollingService } from '@gitroom/backend/services/inbox/inbox.polli
 import { TelegramInboxService } from '@gitroom/backend/services/inbox/telegram.inbox.service';
 import { AdminOrganizationsController } from '@gitroom/backend/api/routes/admin.organizations.controller';
 import { AdminUsersController } from '@gitroom/backend/api/routes/admin.users.controller';
+import { GlobalTrialService } from '@gitroom/backend/services/admin/global-trial.service';
 
 const authenticatedController = [
   UsersController,
@@ -97,6 +98,7 @@ const authenticatedController = [
     TelegramInboxService,
     InboxPollingService,
     InboxPollSchedulerService,
+    GlobalTrialService,
   ],
   get exports() {
     return [...this.imports, ...this.providers];

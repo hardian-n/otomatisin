@@ -5,6 +5,15 @@ import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 
+const isGlobalTrialEnabled = () => {
+  const raw = process.env.GLOBAL_TRIAL_ENABLED;
+  if (!raw) {
+    return true;
+  }
+  const value = raw.trim().toLowerCase();
+  return !['0', 'false', 'no', 'off'].includes(value);
+};
+
 const adminOrganizationSelect = {
   id: true,
   name: true,
@@ -256,12 +265,13 @@ export class OrganizationRepository {
     ip: string,
     userAgent: string
   ) {
+    const trialEnabled = isGlobalTrialEnabled();
     return this._organization.model.organization.create({
       data: {
         name: body.company,
         apiKey: AuthService.fixedEncryption(makeId(20)),
-        allowTrial: true,
-        isTrailing: true,
+        allowTrial: trialEnabled,
+        isTrailing: trialEnabled,
         users: {
           create: {
             role: Role.SUPERADMIN,
@@ -411,6 +421,18 @@ export class OrganizationRepository {
     orgId: string,
     data: { allowTrial?: boolean; isTrailing?: boolean }
   ) {
+    if (!isGlobalTrialEnabled()) {
+      return this._organization.model.organization.update({
+        where: {
+          id: orgId,
+        },
+        data: {
+          allowTrial: false,
+          isTrailing: false,
+        },
+      });
+    }
+
     return this._organization.model.organization.update({
       where: {
         id: orgId,
@@ -422,6 +444,15 @@ export class OrganizationRepository {
         ...(data.isTrailing === undefined
           ? {}
           : { isTrailing: data.isTrailing }),
+      },
+    });
+  }
+
+  disableAllTrials() {
+    return this._organization.model.organization.updateMany({
+      data: {
+        allowTrial: false,
+        isTrailing: false,
       },
     });
   }
