@@ -5,7 +5,8 @@ import {
 } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { PlanOverrideRepository } from './plan-override.repository';
 
-export type PlanTier = keyof typeof pricing;
+const PLAN_TIERS = ['FREE', 'STANDARD', 'TEAM', 'PRO', 'ULTIMATE'] as const;
+export type PlanTier = typeof PLAN_TIERS[number];
 
 export type PlanConfig = {
   tier: PlanTier;
@@ -19,8 +20,7 @@ export class PlansService {
 
   private normalizeTier(tier: string): PlanTier {
     const upper = tier.trim().toUpperCase();
-    const tiers = Object.keys(pricing) as PlanTier[];
-    const matched = tiers.find((t) => t === upper);
+    const matched = PLAN_TIERS.find((t) => t === upper);
     if (!matched) {
       throw new Error(`Unknown plan tier: ${tier}`);
     }
@@ -75,8 +75,7 @@ export class PlansService {
       ])
     );
 
-    const tiers = Object.keys(pricing) as PlanTier[];
-    const plans = tiers.map((tier) =>
+    const plans = PLAN_TIERS.map((tier) =>
       this.mergePlan(tier, overrideMap.get(tier))
     );
 
