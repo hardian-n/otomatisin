@@ -42,6 +42,7 @@ import {
 import { uniqBy } from 'lodash';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.service';
+import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -51,7 +52,8 @@ export class IntegrationsController {
     private _integrationService: IntegrationService,
     private _postService: PostsService,
     private _refreshIntegrationService: RefreshIntegrationService,
-    private _thirdPartyService: ThirdPartyService
+    private _thirdPartyService: ThirdPartyService,
+    private _subscriptionService: SubscriptionService
   ) {}
 
   private resolveFrontendUrl(req: Request) {
@@ -654,15 +656,17 @@ export class IntegrationsController {
   }
 
   @Post('/enable')
-  enableChannel(
+  async enableChannel(
     @GetOrgFromRequest() org: Organization,
     @Body('id') id: string
   ) {
+    const plan = await this._subscriptionService.getPlanForOrg(org.id);
+    const channelLimit = plan?.channelLimitUnlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, Number(plan?.channelLimit ?? 0));
     return this._integrationService.enableChannel(
       org.id,
-      org?.subscription?.plan?.channelLimitUnlimited
-        ? Number.MAX_SAFE_INTEGER
-        : Math.max(0, Number(org?.subscription?.plan?.channelLimit ?? 0)),
+      channelLimit,
       id
     );
   }
