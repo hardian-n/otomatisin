@@ -105,6 +105,7 @@ model User {
   agencies              SocialMediaAgency?
   picture               Media?             @relation(fields: [pictureId], references: [id])
   organizations         UserOrganization[]
+  planPayments          PlanPayment[]
   sendSuccessEmails     Boolean            @default(true)
   sendFailureEmails     Boolean            @default(true)
 
