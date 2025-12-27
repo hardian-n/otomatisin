@@ -17,6 +17,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',
 });
 
+const LEGACY_PLAN_MAP: Record<string, string> = {
+  FREE: 'FREE',
+  STANDARD: 'BASIC',
+  TEAM: 'BASIC',
+  PRO: 'ENTERPRISE',
+  ULTIMATE: 'ENTERPRISE',
+  BASIC: 'BASIC',
+  ENTERPRISE: 'ENTERPRISE',
+};
+
 @Injectable()
 export class StripeService {
   constructor(
@@ -27,6 +37,35 @@ export class StripeService {
     private _trackService: TrackService,
     private _plansService: PlansService
   ) {}
+
+  private normalizePlanKey(value?: string | null) {
+    const key = (value || 'FREE').trim().toUpperCase();
+    return LEGACY_PLAN_MAP[key] || key;
+  }
+
+  private resolveChannelLimit(plan?: {
+    channelLimit?: number | null;
+    channelLimitUnlimited?: boolean;
+  }) {
+    if (!plan) {
+      return 0;
+    }
+    return plan.channelLimitUnlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, Number(plan.channelLimit ?? 0));
+  }
+
+  private resolvePrice(plan?: { price?: number | null }) {
+    return Math.max(0, Number(plan?.price ?? 0));
+  }
+
+  private async resolvePlanByBilling(billing: string) {
+    const key = this.normalizePlanKey(billing);
+    return (
+      (await this._plansService.getPlanByKey(key)) ||
+      (await this._plansService.getDefaultPlan())
+    );
+  }
   validateRequest(rawBody: Buffer, signature: string, endpointSecret: string) {
     return stripe.webhooks.constructEvent(rawBody, signature, endpointSecret);
   }
@@ -141,13 +180,13 @@ export class StripeService {
       return { ok: false };
     }
 
-    const plan = await this._plansService.getPlanByTier(billing);
+    const plan = await this.resolvePlanByBilling(billing);
     return this._subscriptionService.createOrUpdateSubscription(
       event.data.object.status !== 'active',
       uniqueId,
       event.data.object.customer as string,
-      plan.pricing.channel!,
-      billing,
+      this.resolveChannelLimit(plan),
+      this.normalizePlanKey(billing),
       period,
       event.data.object.cancel_at
     );
@@ -170,13 +209,13 @@ export class StripeService {
       return { ok: false };
     }
 
-    const plan = await this._plansService.getPlanByTier(billing);
+    const plan = await this.resolvePlanByBilling(billing);
     return this._subscriptionService.createOrUpdateSubscription(
       event.data.object.status !== 'active',
       uniqueId,
       event.data.object.customer as string,
-      plan.pricing.channel!,
-      billing,
+      this.resolveChannelLimit(plan),
+      this.normalizePlanKey(billing),
       period,
       event.data.object.cancel_at
     );
@@ -231,8 +270,11 @@ export class StripeService {
   async prorate(organizationId: string, body: BillingSubscribeDto) {
     const org = await this._organizationService.getOrgById(organizationId);
     const customer = await this.createOrGetCustomer(org!);
-    const plan = await this._plansService.getPlanByTier(body.billing);
-    const priceData = plan.pricing;
+    const plan = await this.resolvePlanByBilling(body.billing);
+    const priceData = {
+      month_price: this.resolvePrice(plan),
+      year_price: this.resolvePrice(plan),
+    };
     const allProducts = await stripe.products.list({
       active: true,
       expand: ['data.prices'],
@@ -638,8 +680,11 @@ export class StripeService {
     allowTrial: boolean
   ) {
     const id = makeId(10);
-    const plan = await this._plansService.getPlanByTier(body.billing);
-    const priceData = plan.pricing;
+    const plan = await this.resolvePlanByBilling(body.billing);
+    const priceData = {
+      month_price: this.resolvePrice(plan),
+      year_price: this.resolvePrice(plan),
+    };
     const org = await this._organizationService.getOrgById(organizationId);
     const customer = await this.createOrGetCustomer(org!);
     const allProducts = await stripe.products.list({
@@ -776,8 +821,13 @@ export class StripeService {
       await this._subscriptionService.getSubscriptionByOrganizationId(
         organizationId
       );
-    if (getCurrentSubscription && !getCurrentSubscription?.isLifetime) {
-      throw new Error('You already have a non lifetime subscription');
+    if (
+      getCurrentSubscription &&
+      getCurrentSubscription.status &&
+      getCurrentSubscription.status !== 'CANCELED' &&
+      getCurrentSubscription.status !== 'EXPIRED'
+    ) {
+      throw new Error('You already have an active subscription');
     }
 
     try {
@@ -790,16 +840,14 @@ export class StripeService {
       }
 
       const nextPackage = !getCurrentSubscription ? 'STANDARD' : 'PRO';
-      const findPricing = await this._plansService.getPlanByTier(nextPackage);
+      const findPricing = await this.resolvePlanByBilling(nextPackage);
 
       await this._subscriptionService.createOrUpdateSubscription(
         false,
         makeId(10),
         organizationId,
-        getCurrentSubscription?.subscriptionTier === 'PRO'
-          ? getCurrentSubscription.totalChannels + 5
-          : findPricing.pricing.channel!,
-        nextPackage,
+        this.resolveChannelLimit(findPricing),
+        this.normalizePlanKey(nextPackage),
         'MONTHLY',
         null,
         testCode,
