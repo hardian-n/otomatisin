@@ -84,17 +84,6 @@ export class OrganizationService {
     );
   }
 
-  updateTrialFlags(
-    orgId: string,
-    data: { allowTrial?: boolean; isTrailing?: boolean }
-  ) {
-    return this._organizationRepository.updateTrialFlags(orgId, data);
-  }
-
-  disableAllTrials() {
-    return this._organizationRepository.disableAllTrials();
-  }
-
   async inviteTeamMember(orgId: string, body: AddTeamMemberDto) {
     const timeLimit = dayjs().add(1, 'hour').format('YYYY-MM-DD HH:mm:ss');
     const id = makeId(5);

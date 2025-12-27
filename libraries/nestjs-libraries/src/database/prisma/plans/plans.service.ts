@@ -1,110 +1,315 @@
-import { Injectable } from '@nestjs/common';
-import {
-  pricing,
-  PricingInnerInterface,
-} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
-import { PlanOverrideRepository } from './plan-override.repository';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { PlanRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan.repository';
 
-const PLAN_TIERS = ['FREE', 'STANDARD', 'TEAM', 'PRO', 'ULTIMATE'] as const;
-export type PlanTier = typeof PLAN_TIERS[number];
-
-export type PlanConfig = {
-  tier: PlanTier;
-  visible: boolean;
-  pricing: PricingInnerInterface;
+const DEFAULT_LIMITS = {
+  channelLimit: 3,
+  postLimitMonthly: 3,
+  memberLimit: 3,
+  storageLimitMb: 3,
+  inboxLimitMonthly: 3,
+  autoreplyLimit: 3,
 };
 
+const DEFAULT_PLANS = [
+  {
+    key: 'FREE',
+    name: 'Free',
+    price: 0,
+    isDefault: true,
+  },
+  {
+    key: 'BASIC',
+    name: 'Basic',
+    price: 20000,
+    isDefault: false,
+  },
+  {
+    key: 'ENTERPRISE',
+    name: 'Enterprise',
+    price: 20000,
+    isDefault: false,
+  },
+] as const;
+
 @Injectable()
-export class PlansService {
-  constructor(private readonly _planOverrideRepo: PlanOverrideRepository) {}
+export class PlansService implements OnModuleInit {
+  constructor(private readonly _planRepository: PlanRepository) {}
 
-  private normalizeTier(tier: string): PlanTier {
-    const upper = tier.trim().toUpperCase();
-    const matched = PLAN_TIERS.find((t) => t === upper);
-    if (!matched) {
-      throw new Error(`Unknown plan tier: ${tier}`);
-    }
-    return matched;
+  async onModuleInit() {
+    await this.ensureDefaultPlans();
   }
 
-  private mergePlan(
-    tier: PlanTier,
-    override?: {
-      visible: boolean;
-      monthPrice: number | null;
-      yearPrice: number | null;
-      channelLimit: number | null;
-    }
-  ): PlanConfig {
-    const base = pricing[tier];
-    const merged: PricingInnerInterface = {
-      ...base,
-      current: tier,
-      month_price:
-        override?.monthPrice === null || override?.monthPrice === undefined
-          ? base.month_price
-          : override.monthPrice,
-      year_price:
-        override?.yearPrice === null || override?.yearPrice === undefined
-          ? base.year_price
-          : override.yearPrice,
-      channel:
-        override?.channelLimit === null || override?.channelLimit === undefined
-          ? base.channel
-          : override.channelLimit,
-    };
+  private normalizeKey(key: string) {
+    return key.trim().toUpperCase();
+  }
 
+  private toPlanInput(data: {
+    key: string;
+    name: string;
+    description?: string | null;
+    price?: number | null;
+    currency?: string | null;
+    durationDays?: number | null;
+    trialEnabled?: boolean;
+    trialDays?: number | null;
+    isActive?: boolean;
+    isDefault?: boolean;
+    channelLimit?: number | null;
+    channelLimitUnlimited?: boolean;
+    postLimitMonthly?: number | null;
+    postLimitMonthlyUnlimited?: boolean;
+    memberLimit?: number | null;
+    memberLimitUnlimited?: boolean;
+    storageLimitMb?: number | null;
+    storageLimitMbUnlimited?: boolean;
+    inboxLimitMonthly?: number | null;
+    inboxLimitMonthlyUnlimited?: boolean;
+    autoreplyLimit?: number | null;
+    autoreplyLimitUnlimited?: boolean;
+  }) {
+    const key = this.normalizeKey(data.key);
     return {
-      tier,
-      visible: override?.visible ?? true,
-      pricing: merged,
+      key,
+      name: data.name.trim(),
+      description: data.description?.trim() || null,
+      price: Math.max(0, Number(data.price ?? 20000)),
+      currency: (data.currency || 'IDR').toUpperCase(),
+      durationDays: Math.max(1, Number(data.durationDays ?? 30)),
+      trialEnabled: data.trialEnabled ?? true,
+      trialDays: Math.max(0, Number(data.trialDays ?? 3)),
+      isActive: data.isActive ?? true,
+      isDefault: data.isDefault ?? false,
+      channelLimit: data.channelLimitUnlimited
+        ? null
+        : Math.max(0, Number(data.channelLimit ?? DEFAULT_LIMITS.channelLimit)),
+      channelLimitUnlimited: data.channelLimitUnlimited ?? false,
+      postLimitMonthly: data.postLimitMonthlyUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.postLimitMonthly ?? DEFAULT_LIMITS.postLimitMonthly)
+          ),
+      postLimitMonthlyUnlimited: data.postLimitMonthlyUnlimited ?? false,
+      memberLimit: data.memberLimitUnlimited
+        ? null
+        : Math.max(0, Number(data.memberLimit ?? DEFAULT_LIMITS.memberLimit)),
+      memberLimitUnlimited: data.memberLimitUnlimited ?? false,
+      storageLimitMb: data.storageLimitMbUnlimited
+        ? null
+        : Math.max(0, Number(data.storageLimitMb ?? DEFAULT_LIMITS.storageLimitMb)),
+      storageLimitMbUnlimited: data.storageLimitMbUnlimited ?? false,
+      inboxLimitMonthly: data.inboxLimitMonthlyUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.inboxLimitMonthly ?? DEFAULT_LIMITS.inboxLimitMonthly)
+          ),
+      inboxLimitMonthlyUnlimited: data.inboxLimitMonthlyUnlimited ?? false,
+      autoreplyLimit: data.autoreplyLimitUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.autoreplyLimit ?? DEFAULT_LIMITS.autoreplyLimit)
+          ),
+      autoreplyLimitUnlimited: data.autoreplyLimitUnlimited ?? false,
     };
   }
 
-  async listPlans(includeHidden = true) {
-    const overrides = await this._planOverrideRepo.listOverrides();
-    const overrideMap = new Map(
-      overrides.map((item) => [
-        item.tier,
-        {
-          visible: item.visible,
-          monthPrice: item.monthPrice,
-          yearPrice: item.yearPrice,
-          channelLimit: item.channelLimit,
-        },
-      ])
-    );
+  async ensureDefaultPlans() {
+    const existing = await this._planRepository.listPlans(true);
+    const existingKeys = new Set(existing.map((plan) => plan.key));
 
-    const plans = PLAN_TIERS.map((tier) =>
-      this.mergePlan(tier, overrideMap.get(tier))
-    );
-
-    return includeHidden ? plans : plans.filter((plan) => plan.visible);
-  }
-
-  async getPlanByTier(tier: PlanTier) {
-    const overrides = await this._planOverrideRepo.listOverrides();
-    const override = overrides.find((item) => item.tier === tier);
-    return this.mergePlan(tier, override || undefined);
-  }
-
-  async updatePlan(
-    tier: string,
-    data: {
-      visible?: boolean;
-      monthPrice?: number | null;
-      yearPrice?: number | null;
-      channelLimit?: number | null;
+    for (const plan of DEFAULT_PLANS) {
+      if (existingKeys.has(plan.key)) {
+        continue;
+      }
+      await this._planRepository.createPlan(
+        this.toPlanInput({
+          key: plan.key,
+          name: plan.name,
+          price: plan.price,
+          isDefault: plan.isDefault,
+        })
+      );
     }
-  ) {
-    const normalized = this.normalizeTier(tier);
-    await this._planOverrideRepo.upsertOverride(normalized, data);
-    return this.getPlanByTier(normalized);
+
+    const hasDefault = existing.some((plan) => plan.isDefault);
+    if (!hasDefault) {
+      const free = await this._planRepository.getPlanByKey('FREE');
+      if (free) {
+        await this._planRepository.clearDefaultPlan();
+        await this._planRepository.updatePlan(free.id, { isDefault: true });
+      }
+    }
   }
 
-  async resetPlan(tier: string) {
-    const normalized = this.normalizeTier(tier);
-    await this._planOverrideRepo.deleteOverride(normalized);
-    return this.getPlanByTier(normalized);
+  listPlans(includeInactive = true) {
+    return this._planRepository.listPlans(includeInactive);
+  }
+
+  async getDefaultPlan() {
+    const plans = await this._planRepository.listPlans(true);
+    return plans.find((plan) => plan.isDefault) || plans[0] || null;
+  }
+
+  getPlanById(id: string) {
+    return this._planRepository.getPlanById(id);
+  }
+
+  getPlanByKey(key: string) {
+    return this._planRepository.getPlanByKey(this.normalizeKey(key));
+  }
+
+  async createPlan(data: {
+    key: string;
+    name: string;
+    description?: string | null;
+    price?: number | null;
+    currency?: string | null;
+    durationDays?: number | null;
+    trialEnabled?: boolean;
+    trialDays?: number | null;
+    isActive?: boolean;
+    isDefault?: boolean;
+    channelLimit?: number | null;
+    channelLimitUnlimited?: boolean;
+    postLimitMonthly?: number | null;
+    postLimitMonthlyUnlimited?: boolean;
+    memberLimit?: number | null;
+    memberLimitUnlimited?: boolean;
+    storageLimitMb?: number | null;
+    storageLimitMbUnlimited?: boolean;
+    inboxLimitMonthly?: number | null;
+    inboxLimitMonthlyUnlimited?: boolean;
+    autoreplyLimit?: number | null;
+    autoreplyLimitUnlimited?: boolean;
+  }) {
+    const input = this.toPlanInput(data);
+    const existing = await this._planRepository.getPlanByKey(input.key);
+    if (existing) {
+      throw new Error('Plan key already exists');
+    }
+    if (input.isDefault) {
+      await this._planRepository.clearDefaultPlan();
+    }
+    return this._planRepository.createPlan(input);
+  }
+
+  async updatePlan(id: string, data: Partial<{
+    name: string;
+    description: string | null;
+    price: number | null;
+    currency: string | null;
+    durationDays: number | null;
+    trialEnabled: boolean;
+    trialDays: number | null;
+    isActive: boolean;
+    isDefault: boolean;
+    channelLimit: number | null;
+    channelLimitUnlimited: boolean;
+    postLimitMonthly: number | null;
+    postLimitMonthlyUnlimited: boolean;
+    memberLimit: number | null;
+    memberLimitUnlimited: boolean;
+    storageLimitMb: number | null;
+    storageLimitMbUnlimited: boolean;
+    inboxLimitMonthly: number | null;
+    inboxLimitMonthlyUnlimited: boolean;
+    autoreplyLimit: number | null;
+    autoreplyLimitUnlimited: boolean;
+  }>) {
+    if (data.isDefault) {
+      await this._planRepository.clearDefaultPlan();
+    }
+
+    const updateData: any = {
+      ...(data.name ? { name: data.name.trim() } : {}),
+      ...(data.description !== undefined
+        ? { description: data.description?.trim() || null }
+        : {}),
+      ...(data.price !== undefined
+        ? { price: Math.max(0, Number(data.price)) }
+        : {}),
+      ...(data.currency ? { currency: data.currency.toUpperCase() } : {}),
+      ...(data.durationDays !== undefined
+        ? { durationDays: Math.max(1, Number(data.durationDays)) }
+        : {}),
+      ...(data.trialEnabled !== undefined
+        ? { trialEnabled: data.trialEnabled }
+        : {}),
+      ...(data.trialDays !== undefined
+        ? { trialDays: Math.max(0, Number(data.trialDays)) }
+        : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+      ...(data.isDefault !== undefined ? { isDefault: data.isDefault } : {}),
+    };
+
+    if (data.channelLimitUnlimited !== undefined) {
+      updateData.channelLimitUnlimited = data.channelLimitUnlimited;
+    }
+    if (data.channelLimit !== undefined || data.channelLimitUnlimited !== undefined) {
+      updateData.channelLimit = data.channelLimitUnlimited
+        ? null
+        : Math.max(0, Number(data.channelLimit ?? DEFAULT_LIMITS.channelLimit));
+    }
+
+    if (data.postLimitMonthlyUnlimited !== undefined) {
+      updateData.postLimitMonthlyUnlimited = data.postLimitMonthlyUnlimited;
+    }
+    if (data.postLimitMonthly !== undefined || data.postLimitMonthlyUnlimited !== undefined) {
+      updateData.postLimitMonthly = data.postLimitMonthlyUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.postLimitMonthly ?? DEFAULT_LIMITS.postLimitMonthly)
+          );
+    }
+
+    if (data.memberLimitUnlimited !== undefined) {
+      updateData.memberLimitUnlimited = data.memberLimitUnlimited;
+    }
+    if (data.memberLimit !== undefined || data.memberLimitUnlimited !== undefined) {
+      updateData.memberLimit = data.memberLimitUnlimited
+        ? null
+        : Math.max(0, Number(data.memberLimit ?? DEFAULT_LIMITS.memberLimit));
+    }
+
+    if (data.storageLimitMbUnlimited !== undefined) {
+      updateData.storageLimitMbUnlimited = data.storageLimitMbUnlimited;
+    }
+    if (data.storageLimitMb !== undefined || data.storageLimitMbUnlimited !== undefined) {
+      updateData.storageLimitMb = data.storageLimitMbUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.storageLimitMb ?? DEFAULT_LIMITS.storageLimitMb)
+          );
+    }
+
+    if (data.inboxLimitMonthlyUnlimited !== undefined) {
+      updateData.inboxLimitMonthlyUnlimited = data.inboxLimitMonthlyUnlimited;
+    }
+    if (data.inboxLimitMonthly !== undefined || data.inboxLimitMonthlyUnlimited !== undefined) {
+      updateData.inboxLimitMonthly = data.inboxLimitMonthlyUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.inboxLimitMonthly ?? DEFAULT_LIMITS.inboxLimitMonthly)
+          );
+    }
+
+    if (data.autoreplyLimitUnlimited !== undefined) {
+      updateData.autoreplyLimitUnlimited = data.autoreplyLimitUnlimited;
+    }
+    if (data.autoreplyLimit !== undefined || data.autoreplyLimitUnlimited !== undefined) {
+      updateData.autoreplyLimit = data.autoreplyLimitUnlimited
+        ? null
+        : Math.max(
+            0,
+            Number(data.autoreplyLimit ?? DEFAULT_LIMITS.autoreplyLimit)
+          );
+    }
+
+    return this._planRepository.updatePlan(id, updateData);
   }
 }

@@ -12,13 +12,12 @@ import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.req
 import { Organization, User } from '@prisma/client';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
-import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
+import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 import { Response, Request } from 'express';
 import { AuthService } from '@gitroom/backend/services/auth/auth.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { getCookieUrlFromDomain } from '@gitroom/helpers/subdomain/subdomain.management';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
 import { UserDetailDto } from '@gitroom/nestjs-libraries/dtos/users/user.details.dto';
@@ -36,11 +35,11 @@ import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/p
 export class UsersController {
   constructor(
     private _subscriptionService: SubscriptionService,
-    private _stripeService: StripeService,
     private _authService: AuthService,
     private _orgService: OrganizationService,
     private _userService: UsersService,
-    private _trackService: TrackService
+    private _trackService: TrackService,
+    private _plansService: PlansService
   ) {}
   @Get('/self')
   async getSelf(
@@ -53,22 +52,42 @@ export class UsersController {
     }
 
     const impersonate = req.cookies.impersonate || req.headers.impersonate;
+    const subscription = await this._subscriptionService.getSubscriptionByOrganizationId(
+      organization.id
+    );
+    const plan =
+      subscription?.plan || (await this._plansService.getDefaultPlan());
+    const planKey = plan?.key || 'FREE';
+    const totalChannels = plan?.channelLimitUnlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, Number(plan?.channelLimit ?? 0));
     // @ts-ignore
     return {
       ...user,
       orgId: organization.id,
       // @ts-ignore
-      totalChannels: !process.env.STRIPE_PUBLISHABLE_KEY ? 10000 : organization?.subscription?.totalChannels || pricing.FREE.channel,
+      totalChannels,
       // @ts-ignore
-      tier: organization?.subscription?.subscriptionTier || (!process.env.STRIPE_PUBLISHABLE_KEY ? 'ULTIMATE' : 'FREE'),
+      tier: planKey,
+      plan,
+      subscription: subscription
+        ? {
+            id: subscription.id,
+            status: subscription.status,
+            startsAt: subscription.startsAt,
+            endsAt: subscription.endsAt,
+            trialEndsAt: subscription.trialEndsAt,
+            canceledAt: subscription.canceledAt,
+          }
+        : null,
       // @ts-ignore
       role: organization?.users[0]?.role,
       // @ts-ignore
-      isLifetime: !!organization?.subscription?.isLifetime,
+      isLifetime: false,
       admin: !!user.isSuperAdmin,
       impersonate: !!impersonate,
-      isTrailing: !process.env.STRIPE_PUBLISHABLE_KEY ? false : organization?.isTrailing,
-      allowTrial: organization?.allowTrial,
+      isTrailing: subscription?.status === 'TRIAL',
+      allowTrial: plan?.trialEnabled ?? false,
       // @ts-ignore
       publicApi: organization?.users[0]?.role === 'SUPERADMIN' || organization?.users[0]?.role === 'ADMIN' ? organization?.apiKey : '',
     };
@@ -153,7 +172,9 @@ export class UsersController {
   @Get('/subscription/tiers')
   @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
   async tiers() {
-    return this._stripeService.getPackages();
+    return {
+      plans: await this._plansService.listPlans(true),
+    };
   }
 
   @Post('/join-org')

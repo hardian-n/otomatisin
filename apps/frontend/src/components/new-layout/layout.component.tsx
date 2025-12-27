@@ -96,7 +96,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
 
   const mobileMenuItems = [
     ...((user?.orgId &&
-      (user.tier !== 'FREE' || !isGeneral || !billingEnabled) &&
+      (user?.tier?.current !== 'FREE' || !isGeneral || !billingEnabled) &&
       firstMenu.filter(canShowMenuItem)) ||
       []),
     ...secondMenu.filter(canShowMenuItem),
@@ -110,7 +110,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
         showDevConsole={false}
       >
         <MantineWrapper>
-          {user.tier === 'FREE' && searchParams.get('check') && (
+          {user?.tier?.current === 'FREE' && searchParams.get('check') && (
             <CheckPayment check={searchParams.get('check')!} mutate={mutate} />
           )}
           <ToolTip />
@@ -130,7 +130,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
             )}
           >
             <div>{user?.admin ? <Impersonate /> : <div />}</div>
-            {user.tier === 'FREE' && isGeneral && billingEnabled ? (
+            {user?.tier?.current === 'FREE' && isGeneral && billingEnabled ? (
               <BillingAfter />
             ) : (
               <div className="flex-1 flex flex-col lg:flex-row gap-[8px]">

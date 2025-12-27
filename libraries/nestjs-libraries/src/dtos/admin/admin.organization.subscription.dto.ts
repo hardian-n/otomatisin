@@ -1,27 +1,19 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsISO8601 } from 'class-validator';
 
 export class AdminOrganizationSubscriptionDto {
-  @IsIn(['FREE', 'STANDARD', 'TEAM', 'PRO', 'ULTIMATE'])
-  subscriptionTier: 'FREE' | 'STANDARD' | 'TEAM' | 'PRO' | 'ULTIMATE';
+  @IsOptional()
+  @IsString()
+  planId?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  totalChannels?: number;
+  @IsIn(['PENDING', 'ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELED'])
+  status?: 'PENDING' | 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELED';
 
   @IsOptional()
-  @IsIn(['MONTHLY', 'YEARLY'])
-  period?: 'MONTHLY' | 'YEARLY';
+  @IsISO8601()
+  endsAt?: string;
 
   @IsOptional()
-  @IsBoolean()
-  isLifetime?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  allowTrial?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  isTrailing?: boolean;
+  @IsISO8601()
+  trialEndsAt?: string;
 }

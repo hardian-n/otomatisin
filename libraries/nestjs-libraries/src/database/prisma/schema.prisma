@@ -34,6 +34,7 @@ model Organization {
   sets              Sets[]
   signatures        Signatures[]
   subscription      Subscription?
+  planPayments      PlanPayment[]
   tags              Tags[]
   thirdParty        ThirdParty[]
   usedCodes         UsedCodes[]
@@ -274,30 +275,92 @@ model Credits {
 model Subscription {
   id               String           @id @default(cuid())
   organizationId   String           @unique
-  subscriptionTier SubscriptionTier
-  identifier       String?
-  cancelAt         DateTime?
-  period           Period
-  totalChannels    Int
-  isLifetime       Boolean          @default(false)
+  planId           String?
+  status           SubscriptionStatus @default(PENDING)
+  startsAt         DateTime         @default(now())
+  endsAt           DateTime?
+  trialEndsAt      DateTime?
+  canceledAt       DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   deletedAt        DateTime?
   organization     Organization     @relation(fields: [organizationId], references: [id])
+  plan             Plan?            @relation(fields: [planId], references: [id])
+  payments         PlanPayment[]
 
   @@index([organizationId])
   @@index([deletedAt])
 }
 
-model PlanOverride {
-  id           String   @id @default(cuid())
-  tier         String   @unique
-  visible      Boolean  @default(true)
-  monthPrice   Int?
-  yearPrice    Int?
-  channelLimit Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+model Plan {
+  id                        String           @id @default(uuid())
+  key                       String           @unique
+  name                      String
+  description               String?
+  price                     Int              @default(20000)
+  currency                  String           @default("IDR")
+  durationDays              Int              @default(30)
+  trialEnabled              Boolean          @default(true)
+  trialDays                 Int              @default(3)
+  isActive                  Boolean          @default(true)
+  isDefault                 Boolean          @default(false)
+  channelLimit              Int?             @default(3)
+  channelLimitUnlimited     Boolean          @default(false)
+  postLimitMonthly          Int?             @default(3)
+  postLimitMonthlyUnlimited Boolean          @default(false)
+  memberLimit               Int?             @default(3)
+  memberLimitUnlimited      Boolean          @default(false)
+  storageLimitMb            Int?             @default(3)
+  storageLimitMbUnlimited   Boolean          @default(false)
+  inboxLimitMonthly         Int?             @default(3)
+  inboxLimitMonthlyUnlimited Boolean         @default(false)
+  autoreplyLimit            Int?             @default(3)
+  autoreplyLimitUnlimited   Boolean          @default(false)
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  subscriptions             Subscription[]
+  payments                  PlanPayment[]
+}
+
+model PlanPayment {
+  id               String         @id @default(cuid())
+  organizationId   String
+  planId           String
+  userId           String?
+  subscriptionId   String?
+  status           PaymentStatus  @default(PENDING)
+  amount           Int
+  currency         String         @default("IDR")
+  provider         PaymentProvider @default(DUITKU)
+  merchantOrderId  String         @unique
+  reference        String?
+  paymentMethod    String?
+  checkoutUrl      String?
+  expiresAt        DateTime?
+  paidAt           DateTime?
+  requestPayload   Json?
+  responsePayload  Json?
+  callbackPayload  Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  organization     Organization   @relation(fields: [organizationId], references: [id])
+  plan             Plan           @relation(fields: [planId], references: [id])
+  user             User?          @relation(fields: [userId], references: [id])
+  subscription     Subscription?  @relation(fields: [subscriptionId], references: [id])
+
+  @@index([organizationId])
+  @@index([planId])
+  @@index([status])
+}
+
+model PaymentSetting {
+  id           String       @id @default(uuid())
+  provider     PaymentProvider @unique
+  mode         DuitkuMode   @default(SANDBOX)
+  merchantCode String?
+  apiKey       String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Customer {
@@ -843,14 +906,6 @@ model mastra_workflow_snapshot {
   @@unique([workflow_name, run_id], map: "public_mastra_workflow_snapshot_workflow_name_run_id_key")
 }
 
-model GlobalSetting {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 // --- Autoreply ---
 
 enum AutoreplyMatchType {
@@ -931,16 +986,29 @@ enum State {
   DRAFT
 }
 
-enum SubscriptionTier {
-  STANDARD
-  PRO
-  TEAM
-  ULTIMATE
+enum SubscriptionStatus {
+  PENDING
+  TRIAL
+  ACTIVE
+  EXPIRED
+  CANCELED
 }
 
-enum Period {
-  MONTHLY
-  YEARLY
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+  EXPIRED
+}
+
+enum PaymentProvider {
+  DUITKU
+}
+
+enum DuitkuMode {
+  SANDBOX
+  PRODUCTION
 }
 
 enum Provider {

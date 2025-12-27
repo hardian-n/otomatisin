@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
   PrismaRepository,
-  PrismaTransaction,
 } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
 import dayjs from 'dayjs';
-import { Organization, Period, SubscriptionTier } from '@prisma/client';
+import { Organization } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionRepository {
@@ -53,7 +52,14 @@ export class SubscriptionRepository {
         organizationId,
         deletedAt: null,
       },
+      include: {
+        plan: true,
+      },
     });
+  }
+
+  getSubscription(organizationId: string) {
+    return this.getSubscriptionByOrganizationId(organizationId);
   }
 
   updateConnectedStatus(account: string, accountCharges: boolean) {
@@ -82,18 +88,23 @@ export class SubscriptionRepository {
     return this._subscription.model.subscription.findFirst({
       where: {
         organizationId,
-        identifier: subscriptionId,
+        id: subscriptionId,
         deletedAt: null,
       },
     });
   }
 
   deleteSubscriptionByCustomerId(customerId: string) {
-    return this._subscription.model.subscription.deleteMany({
+    return this._subscription.model.subscription.updateMany({
       where: {
         organization: {
           paymentId: customerId,
         },
+      },
+      data: {
+        deletedAt: new Date(),
+        status: 'CANCELED',
+        canceledAt: new Date(),
       },
     });
   }
@@ -115,6 +126,10 @@ export class SubscriptionRepository {
         organization: {
           paymentId: customerId,
         },
+        deletedAt: null,
+      },
+      include: {
+        plan: true,
       },
     });
   }
@@ -127,94 +142,15 @@ export class SubscriptionRepository {
     });
   }
 
-  async createOrUpdateSubscription(
-    isTrailing: boolean,
-    identifier: string,
-    customerId: string,
-    totalChannels: number,
-    billing: 'STANDARD' | 'PRO',
-    period: 'MONTHLY' | 'YEARLY',
-    cancelAt: number | null,
-    code?: string,
-    org?: { id: string }
-  ) {
-    const findOrg =
-      org || (await this.getOrganizationByCustomerId(customerId))!;
-
-    if (!findOrg) {
-      return;
-    }
-
-    await this._subscription.model.subscription.upsert({
-      where: {
-        organizationId: findOrg.id,
-        ...(!code
-          ? {
-              organization: {
-                paymentId: customerId,
-              },
-            }
-          : {}),
-      },
-      update: {
-        subscriptionTier: billing,
-        totalChannels,
-        period,
-        identifier,
-        isLifetime: !!code,
-        cancelAt: cancelAt ? new Date(cancelAt * 1000) : null,
-        deletedAt: null,
-      },
-      create: {
-        organizationId: findOrg.id,
-        subscriptionTier: billing,
-        isLifetime: !!code,
-        totalChannels,
-        period,
-        cancelAt: cancelAt ? new Date(cancelAt * 1000) : null,
-        identifier,
-        deletedAt: null,
-      },
-    });
-
-    await this._organization.model.organization.update({
-      where: {
-        id: findOrg.id,
-      },
-      data: {
-        isTrailing,
-        allowTrial: false,
-      },
-    });
-
-    if (code) {
-      await this._usedCodes.model.usedCodes.create({
-        data: {
-          code,
-          orgId: findOrg.id,
-        },
-      });
-    }
-  }
-
-  getSubscription(organizationId: string) {
-    return this._subscription.model.subscription.findFirst({
-      where: {
-        organizationId,
-        deletedAt: null,
-      },
-    });
-  }
-
-  upsertAdminSubscription(
+  async upsertSubscription(
     organizationId: string,
     data: {
-      subscriptionTier: SubscriptionTier;
-      totalChannels: number;
-      period: Period;
-      isLifetime: boolean;
-      identifier?: string | null;
-      cancelAt?: Date | null;
+      planId: string | null;
+      status: 'PENDING' | 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELED';
+      startsAt: Date;
+      endsAt: Date | null;
+      trialEndsAt: Date | null;
+      canceledAt: Date | null;
     }
   ) {
     return this._subscription.model.subscription.upsert({
@@ -222,28 +158,28 @@ export class SubscriptionRepository {
         organizationId,
       },
       update: {
-        subscriptionTier: data.subscriptionTier,
-        totalChannels: data.totalChannels,
-        period: data.period,
-        isLifetime: data.isLifetime,
-        identifier: data.identifier || null,
-        cancelAt: data.cancelAt ?? null,
+        planId: data.planId,
+        status: data.status,
+        startsAt: data.startsAt,
+        endsAt: data.endsAt,
+        trialEndsAt: data.trialEndsAt,
+        canceledAt: data.canceledAt,
         deletedAt: null,
       },
       create: {
         organizationId,
-        subscriptionTier: data.subscriptionTier,
-        totalChannels: data.totalChannels,
-        period: data.period,
-        isLifetime: data.isLifetime,
-        identifier: data.identifier || null,
-        cancelAt: data.cancelAt ?? null,
+        planId: data.planId,
+        status: data.status,
+        startsAt: data.startsAt,
+        endsAt: data.endsAt,
+        trialEndsAt: data.trialEndsAt,
+        canceledAt: data.canceledAt,
         deletedAt: null,
       },
     });
   }
 
-  archiveAdminSubscription(organizationId: string) {
+  archiveSubscription(organizationId: string) {
     return this._subscription.model.subscription.updateMany({
       where: {
         organizationId,
@@ -251,6 +187,8 @@ export class SubscriptionRepository {
       },
       data: {
         deletedAt: new Date(),
+        status: 'CANCELED',
+        canceledAt: new Date(),
       },
     });
   }

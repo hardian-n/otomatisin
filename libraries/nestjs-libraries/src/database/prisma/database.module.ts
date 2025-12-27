@@ -8,10 +8,10 @@ import { StarsService } from '@gitroom/nestjs-libraries/database/prisma/stars/st
 import { StarsRepository } from '@gitroom/nestjs-libraries/database/prisma/stars/stars.repository';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { SubscriptionRepository } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.repository';
-import { PlanOverrideRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-override.repository';
+import { PlanRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan.repository';
 import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
-import { GlobalSettingRepository } from '@gitroom/nestjs-libraries/database/prisma/settings/global-setting.repository';
-import { GlobalSettingsService } from '@gitroom/nestjs-libraries/database/prisma/settings/global-settings.service';
+import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
+import { PaymentSettingsRepository } from '@gitroom/nestjs-libraries/database/prisma/payments/payment-settings.repository';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
@@ -63,10 +63,10 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
     StarsRepository,
     SubscriptionService,
     SubscriptionRepository,
-    PlanOverrideRepository,
+    PlanRepository,
+    PlanPaymentRepository,
     PlansService,
-    GlobalSettingRepository,
-    GlobalSettingsService,
+    PaymentSettingsRepository,
     NotificationService,
     NotificationsRepository,
     WebhooksRepository,

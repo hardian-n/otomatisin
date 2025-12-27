@@ -8,23 +8,57 @@ import { Input } from '@gitroom/react/form/input';
 import { Select } from '@gitroom/react/form/select';
 import { Button } from '@gitroom/react/form/button';
 import { useToaster } from '@gitroom/react/toaster/toaster';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { AdminNav } from '@gitroom/frontend/components/admin/admin.nav';
 
+const formatDate = (value?: string | null) => {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toISOString().slice(0, 10);
+};
+
+const toIso = (value?: string) => {
+  if (!value) {
+    return undefined;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+  return date.toISOString();
+};
+
+type PlanConfig = {
+  id: string;
+  key: string;
+  name: string;
+  price: number;
+  currency: string;
+  durationDays: number;
+  trialEnabled: boolean;
+  trialDays: number;
+  isActive: boolean;
+  isDefault: boolean;
+};
+
 type SubscriptionSummary = {
-  subscriptionTier: 'FREE' | 'STANDARD' | 'TEAM' | 'PRO' | 'ULTIMATE';
-  totalChannels: number;
-  period: 'MONTHLY' | 'YEARLY';
-  isLifetime: boolean;
-  cancelAt?: string | null;
+  id: string;
+  status: 'PENDING' | 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELED';
+  startsAt: string;
+  endsAt?: string | null;
+  trialEndsAt?: string | null;
+  canceledAt?: string | null;
+  plan?: PlanConfig | null;
 };
 
 type AdminOrganization = {
   id: string;
   name: string;
   createdAt: string;
-  allowTrial: boolean;
-  isTrailing: boolean;
   paymentId?: string | null;
   subscription: SubscriptionSummary | null;
   owner?: {
@@ -35,7 +69,20 @@ type AdminOrganization = {
   usersCount: number;
 };
 
-const tierOptions = Object.keys(pricing) as SubscriptionSummary['subscriptionTier'][];
+type SubscriptionForm = {
+  planId: string;
+  status: SubscriptionSummary['status'];
+  endsAt: string;
+  trialEndsAt: string;
+};
+
+const STATUS_OPTIONS: SubscriptionSummary['status'][] = [
+  'PENDING',
+  'ACTIVE',
+  'TRIAL',
+  'EXPIRED',
+  'CANCELED',
+];
 
 export default function AdminOrganizationsPage() {
   const fetcher = useFetch();
@@ -44,19 +91,15 @@ export default function AdminOrganizationsPage() {
   const [query, setQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
   const [organizations, setOrganizations] = useState<AdminOrganization[]>([]);
+  const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [globalTrialEnabled, setGlobalTrialEnabled] = useState(true);
-  const [globalTrialLoading, setGlobalTrialLoading] = useState(false);
-  const [globalTrialSaving, setGlobalTrialSaving] = useState(false);
   const [selected, setSelected] = useState<AdminOrganization | null>(null);
-  const [form, setForm] = useState({
-    subscriptionTier: 'FREE' as SubscriptionSummary['subscriptionTier'],
-    totalChannels: 0,
-    period: 'MONTHLY' as SubscriptionSummary['period'],
-    isLifetime: false,
-    allowTrial: false,
-    isTrailing: false,
+  const [form, setForm] = useState<SubscriptionForm>({
+    planId: '',
+    status: 'PENDING',
+    endsAt: '',
+    trialEndsAt: '',
   });
 
   const isAdmin = !!(user as any)?.admin;
@@ -78,16 +121,14 @@ export default function AdminOrganizationsPage() {
     }
   }, [appliedQuery]);
 
-  const loadGlobalTrial = useCallback(async () => {
-    setGlobalTrialLoading(true);
+  const loadPlans = useCallback(async () => {
     try {
-      const res = await fetcher('/admin/settings/trial');
-      const data = (await res.json()) as { enabled?: boolean };
-      setGlobalTrialEnabled(!!data?.enabled);
+      const res = await fetcher('/admin/plans');
+      const data = (await res.json()) as PlanConfig[];
+      setPlans(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      toaster.show(err?.message || 'Failed to load global trial', 'warning');
-    } finally {
-      setGlobalTrialLoading(false);
+      toaster.show(err?.message || 'Failed to load plans', 'warning');
+      setPlans([]);
     }
   }, []);
 
@@ -96,33 +137,34 @@ export default function AdminOrganizationsPage() {
   }, [loadOrganizations]);
 
   useEffect(() => {
-    loadGlobalTrial();
-  }, [loadGlobalTrial]);
+    loadPlans();
+  }, [loadPlans]);
+
+  const defaultPlanId = useMemo(() => {
+    const activePlans = plans.filter((plan) => plan.isActive);
+    const defaultPlan = activePlans.find((plan) => plan.isDefault) || activePlans[0];
+    return defaultPlan?.id || '';
+  }, [plans]);
 
   const updateFormFromOrg = useCallback((org: AdminOrganization | null) => {
     if (!org) {
       setForm({
-        subscriptionTier: 'FREE',
-        totalChannels: pricing.FREE.channel || 0,
-        period: 'MONTHLY',
-        isLifetime: false,
-        allowTrial: false,
-        isTrailing: false,
+        planId: defaultPlanId,
+        status: 'PENDING',
+        endsAt: '',
+        trialEndsAt: '',
       });
       return;
     }
 
-    const tier = org.subscription?.subscriptionTier || 'FREE';
-    const defaultChannels = pricing[tier]?.channel || 0;
+    const subscription = org.subscription;
     setForm({
-      subscriptionTier: tier,
-      totalChannels: org.subscription?.totalChannels ?? defaultChannels,
-      period: org.subscription?.period || 'MONTHLY',
-      isLifetime: org.subscription?.isLifetime ?? false,
-      allowTrial: org.allowTrial,
-      isTrailing: org.isTrailing,
+      planId: subscription?.plan?.id || defaultPlanId,
+      status: subscription?.status || 'PENDING',
+      endsAt: formatDate(subscription?.endsAt),
+      trialEndsAt: formatDate(subscription?.trialEndsAt),
     });
-  }, []);
+  }, [defaultPlanId]);
 
   const onSelectOrg = useCallback(
     (org: AdminOrganization) => {
@@ -130,18 +172,6 @@ export default function AdminOrganizationsPage() {
       updateFormFromOrg(org);
     },
     [updateFormFromOrg]
-  );
-
-  const onTierChange = useCallback(
-    (value: SubscriptionSummary['subscriptionTier']) => {
-      const defaultChannels = pricing[value]?.channel || 0;
-      setForm((prev) => ({
-        ...prev,
-        subscriptionTier: value,
-        totalChannels: defaultChannels,
-      }));
-    },
-    []
   );
 
   const onSave = useCallback(async () => {
@@ -153,12 +183,10 @@ export default function AdminOrganizationsPage() {
       await fetcher(`/admin/organizations/${selected.id}/subscription`, {
         method: 'POST',
         body: JSON.stringify({
-          subscriptionTier: form.subscriptionTier,
-          totalChannels: Number(form.totalChannels),
-          period: form.period,
-          isLifetime: form.isLifetime,
-          allowTrial: form.allowTrial,
-          isTrailing: form.isTrailing,
+          planId: form.planId || undefined,
+          status: form.status,
+          endsAt: toIso(form.endsAt),
+          trialEndsAt: toIso(form.trialEndsAt),
         }),
       });
       toaster.show('Organization updated', 'success');
@@ -170,35 +198,8 @@ export default function AdminOrganizationsPage() {
     }
   }, [selected, form, loadOrganizations]);
 
-  const onToggleGlobalTrial = useCallback(async () => {
-    const nextValue = !globalTrialEnabled;
-    setGlobalTrialSaving(true);
-    try {
-      await fetcher('/admin/settings/trial', {
-        method: 'POST',
-        body: JSON.stringify({ enabled: nextValue }),
-      });
-      setGlobalTrialEnabled(nextValue);
-      toaster.show(
-        nextValue
-          ? 'Global trial enabled'
-          : 'Global trial disabled and all trials stopped',
-        'success'
-      );
-      await loadOrganizations();
-    } catch (err: any) {
-      toaster.show(err?.message || 'Failed to update global trial', 'warning');
-    } finally {
-      setGlobalTrialSaving(false);
-    }
-  }, [globalTrialEnabled, loadOrganizations]);
-
   const selectedId = selected?.id;
   const hasSelection = !!selectedId;
-  const totalChannelsValue = useMemo(
-    () => Number.isFinite(form.totalChannels) ? form.totalChannels : 0,
-    [form.totalChannels]
-  );
 
   if (!user) {
     return null;
@@ -222,7 +223,7 @@ export default function AdminOrganizationsPage() {
           <div className="flex-1">
             <div className="text-[20px] font-[600]">Organizations</div>
             <div className="text-[12px] text-customColor18">
-              Manage subscription tiers per organization without changing the existing flow.
+              Assign plans and override subscription status per organization.
             </div>
           </div>
           <AdminNav active="organizations" />
@@ -256,36 +257,6 @@ export default function AdminOrganizationsPage() {
           </div>
         </div>
 
-        <div className="border border-newTableBorder rounded-[12px] p-[12px] flex flex-col md:flex-row md:items-center md:justify-between gap-[12px]">
-          <div>
-            <div className="text-[14px] font-[600]">Global Trial</div>
-            <div className="text-[12px] text-customColor18">
-              When disabled, all organization trials are turned off and new orgs cannot start a trial.
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-[12px]">
-            <div className="text-[13px]">
-              Status:{' '}
-              <span className="font-[600]">
-                {globalTrialLoading
-                  ? 'Loading...'
-                  : globalTrialEnabled
-                    ? 'Enabled'
-                    : 'Disabled'}
-              </span>
-            </div>
-            <Button
-              type="button"
-              secondary={globalTrialEnabled}
-              loading={globalTrialSaving}
-              disabled={globalTrialLoading}
-              onClick={onToggleGlobalTrial}
-            >
-              {globalTrialEnabled ? 'Disable trial' : 'Enable trial'}
-            </Button>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-[16px]">
           <div className="border border-newTableBorder rounded-[12px] overflow-hidden">
             <div className="overflow-x-auto">
@@ -294,9 +265,9 @@ export default function AdminOrganizationsPage() {
                   <tr>
                     <th className="px-[12px] py-[10px] text-left">Organization</th>
                     <th className="px-[12px] py-[10px] text-left">Owner</th>
-                    <th className="px-[12px] py-[10px] text-left">Tier</th>
-                    <th className="px-[12px] py-[10px] text-left">Channels</th>
-                    <th className="px-[12px] py-[10px] text-left">Trial</th>
+                    <th className="px-[12px] py-[10px] text-left">Plan</th>
+                    <th className="px-[12px] py-[10px] text-left">Status</th>
+                    <th className="px-[12px] py-[10px] text-left">Ends</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -321,7 +292,7 @@ export default function AdminOrganizationsPage() {
                     </tr>
                   )}
                   {organizations.map((org) => {
-                    const tier = org.subscription?.subscriptionTier || 'FREE';
+                    const plan = org.subscription?.plan;
                     return (
                       <tr
                         key={org.id}
@@ -343,12 +314,14 @@ export default function AdminOrganizationsPage() {
                             {org.owner?.name || ''}
                           </div>
                         </td>
-                        <td className="px-[12px] py-[10px]">{tier}</td>
                         <td className="px-[12px] py-[10px]">
-                          {org.subscription?.totalChannels ?? 0}
+                          {plan ? plan.name : '—'}
                         </td>
                         <td className="px-[12px] py-[10px]">
-                          {org.allowTrial ? 'Allowed' : 'No'}
+                          {org.subscription?.status || '—'}
+                        </td>
+                        <td className="px-[12px] py-[10px]">
+                          {formatDate(org.subscription?.endsAt) || '—'}
                         </td>
                       </tr>
                     );
@@ -375,99 +348,69 @@ export default function AdminOrganizationsPage() {
                   readOnly
                 />
                 <Select
-                  label="Tier"
-                  name="subscriptionTier"
+                  label="Plan"
+                  name="planId"
                   disableForm={true}
-                  value={form.subscriptionTier}
+                  value={form.planId}
                   onChange={(e: any) =>
-                    onTierChange(
-                      e.target.value as SubscriptionSummary['subscriptionTier']
-                    )
+                    setForm((prev) => ({
+                      ...prev,
+                      planId: e.target.value,
+                    }))
                   }
                 >
-                  {tierOptions.map((tier) => (
-                    <option key={tier} value={tier}>
-                      {tier}
+                  {plans
+                    .filter((plan) => plan.isActive)
+                    .map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} ({plan.key})
+                      </option>
+                    ))}
+                </Select>
+                <Select
+                  label="Status"
+                  name="status"
+                  disableForm={true}
+                  value={form.status}
+                  onChange={(e: any) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      status: e.target.value as SubscriptionSummary['status'],
+                    }))
+                  }
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
                     </option>
                   ))}
                 </Select>
                 <Input
-                  label="Total Channels"
-                  name="totalChannels"
+                  label="Ends at"
+                  name="endsAt"
                   disableForm={true}
-                  type="number"
-                  min={0}
-                  value={totalChannelsValue}
+                  type="date"
+                  value={form.endsAt}
                   onChange={(e: any) =>
                     setForm((prev) => ({
                       ...prev,
-                      totalChannels: Number(e.target.value),
+                      endsAt: e.target.value,
                     }))
                   }
                 />
-                <Select
-                  label="Billing Period"
-                  name="period"
+                <Input
+                  label="Trial ends at"
+                  name="trialEndsAt"
                   disableForm={true}
-                  value={form.period}
+                  type="date"
+                  value={form.trialEndsAt}
                   onChange={(e: any) =>
                     setForm((prev) => ({
                       ...prev,
-                      period: e.target.value as SubscriptionSummary['period'],
+                      trialEndsAt: e.target.value,
                     }))
                   }
-                >
-                  <option value="MONTHLY">MONTHLY</option>
-                  <option value="YEARLY">YEARLY</option>
-                </Select>
-                <div className="flex items-center gap-[8px]">
-                  <input
-                    id="isLifetime"
-                    type="checkbox"
-                    checked={form.isLifetime}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        isLifetime: e.target.checked,
-                      }))
-                    }
-                  />
-                  <label htmlFor="isLifetime" className="text-[13px]">
-                    Lifetime subscription
-                  </label>
-                </div>
-                <div className="flex items-center gap-[8px]">
-                  <input
-                    id="allowTrial"
-                    type="checkbox"
-                    checked={form.allowTrial}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        allowTrial: e.target.checked,
-                      }))
-                    }
-                  />
-                  <label htmlFor="allowTrial" className="text-[13px]">
-                    Allow trial
-                  </label>
-                </div>
-                <div className="flex items-center gap-[8px]">
-                  <input
-                    id="isTrailing"
-                    type="checkbox"
-                    checked={form.isTrailing}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        isTrailing: e.target.checked,
-                      }))
-                    }
-                  />
-                  <label htmlFor="isTrailing" className="text-[13px]">
-                    On trial
-                  </label>
-                </div>
+                />
                 <Button
                   type="button"
                   onClick={onSave}

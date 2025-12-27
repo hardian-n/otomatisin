@@ -38,10 +38,18 @@ export class AdminOrganizationsController {
       id: org.id,
       name: org.name,
       createdAt: org.createdAt,
-      allowTrial: org.allowTrial,
-      isTrailing: org.isTrailing,
       paymentId: org.paymentId,
-      subscription: org.subscription || null,
+      subscription: org.subscription
+        ? {
+            id: org.subscription.id,
+            status: org.subscription.status,
+            startsAt: org.subscription.startsAt,
+            endsAt: org.subscription.endsAt,
+            trialEndsAt: org.subscription.trialEndsAt,
+            canceledAt: org.subscription.canceledAt,
+            plan: org.subscription.plan || null,
+          }
+        : null,
       owner: org.users?.[0]?.user || null,
       usersCount: org._count?.users ?? 0,
     }));

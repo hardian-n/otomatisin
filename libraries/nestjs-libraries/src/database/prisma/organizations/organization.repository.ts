@@ -1,10 +1,9 @@
 import { PrismaRepository } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
-import { Prisma, Role, SubscriptionTier } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
-import { GlobalSettingsService } from '@gitroom/nestjs-libraries/database/prisma/settings/global-settings.service';
 
 const adminOrganizationSelect = {
   id: true,
@@ -15,11 +14,38 @@ const adminOrganizationSelect = {
   paymentId: true,
   subscription: {
     select: {
-      subscriptionTier: true,
-      totalChannels: true,
-      period: true,
-      isLifetime: true,
-      cancelAt: true,
+      id: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      trialEndsAt: true,
+      canceledAt: true,
+      plan: {
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          price: true,
+          currency: true,
+          durationDays: true,
+          trialEnabled: true,
+          trialDays: true,
+          isActive: true,
+          isDefault: true,
+          channelLimit: true,
+          channelLimitUnlimited: true,
+          postLimitMonthly: true,
+          postLimitMonthlyUnlimited: true,
+          memberLimit: true,
+          memberLimitUnlimited: true,
+          storageLimitMb: true,
+          storageLimitMbUnlimited: true,
+          inboxLimitMonthly: true,
+          inboxLimitMonthlyUnlimited: true,
+          autoreplyLimit: true,
+          autoreplyLimitUnlimited: true,
+        },
+      },
     },
   },
   users: {
@@ -52,13 +78,8 @@ export class OrganizationRepository {
   constructor(
     private _organization: PrismaRepository<'organization'>,
     private _userOrg: PrismaRepository<'userOrganization'>,
-    private _user: PrismaRepository<'user'>,
-    private _globalSettings: GlobalSettingsService
+    private _user: PrismaRepository<'user'>
   ) {}
-
-  private isGlobalTrialEnabled() {
-    return this._globalSettings.getGlobalTrialEnabled();
-  }
 
   getOrgByApiKey(api: string) {
     return this._organization.model.organization.findFirst({
@@ -68,9 +89,38 @@ export class OrganizationRepository {
       include: {
         subscription: {
           select: {
-            subscriptionTier: true,
-            totalChannels: true,
-            isLifetime: true,
+            id: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+            trialEndsAt: true,
+            canceledAt: true,
+            plan: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                price: true,
+                currency: true,
+                durationDays: true,
+                trialEnabled: true,
+                trialDays: true,
+                isActive: true,
+                isDefault: true,
+                channelLimit: true,
+                channelLimitUnlimited: true,
+                postLimitMonthly: true,
+                postLimitMonthlyUnlimited: true,
+                memberLimit: true,
+                memberLimitUnlimited: true,
+                storageLimitMb: true,
+                storageLimitMbUnlimited: true,
+                inboxLimitMonthly: true,
+                inboxLimitMonthlyUnlimited: true,
+                autoreplyLimit: true,
+                autoreplyLimitUnlimited: true,
+              },
+            },
           },
         },
       },
@@ -98,13 +148,42 @@ export class OrganizationRepository {
                 userId: true,
               },
             },
-            subscription: {
+        subscription: {
+          select: {
+            id: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+            trialEndsAt: true,
+            canceledAt: true,
+            plan: {
               select: {
-                subscriptionTier: true,
-                totalChannels: true,
-                isLifetime: true,
+                id: true,
+                key: true,
+                name: true,
+                price: true,
+                currency: true,
+                durationDays: true,
+                trialEnabled: true,
+                trialDays: true,
+                isActive: true,
+                isDefault: true,
+                channelLimit: true,
+                channelLimitUnlimited: true,
+                postLimitMonthly: true,
+                postLimitMonthlyUnlimited: true,
+                memberLimit: true,
+                memberLimitUnlimited: true,
+                storageLimitMb: true,
+                storageLimitMbUnlimited: true,
+                inboxLimitMonthly: true,
+                inboxLimitMonthlyUnlimited: true,
+                autoreplyLimit: true,
+                autoreplyLimitUnlimited: true,
               },
             },
+          },
+        },
           },
         },
       },
@@ -184,10 +263,39 @@ export class OrganizationRepository {
         },
         subscription: {
           select: {
-            subscriptionTier: true,
-            totalChannels: true,
-            isLifetime: true,
+            id: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+            trialEndsAt: true,
+            canceledAt: true,
             createdAt: true,
+            plan: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                price: true,
+                currency: true,
+                durationDays: true,
+                trialEnabled: true,
+                trialDays: true,
+                isActive: true,
+                isDefault: true,
+                channelLimit: true,
+                channelLimitUnlimited: true,
+                postLimitMonthly: true,
+                postLimitMonthlyUnlimited: true,
+                memberLimit: true,
+                memberLimitUnlimited: true,
+                storageLimitMb: true,
+                storageLimitMbUnlimited: true,
+                inboxLimitMonthly: true,
+                inboxLimitMonthlyUnlimited: true,
+                autoreplyLimit: true,
+                autoreplyLimitUnlimited: true,
+              },
+            },
           },
         },
       },
@@ -228,11 +336,7 @@ export class OrganizationRepository {
         },
       });
 
-    if (
-      process.env.STRIPE_PUBLISHABLE_KEY &&
-      checkForSubscription?.subscription?.subscriptionTier ===
-        SubscriptionTier.STANDARD
-    ) {
+    if (process.env.STRIPE_PUBLISHABLE_KEY && checkForSubscription?.subscription) {
       return false;
     }
 
@@ -262,13 +366,12 @@ export class OrganizationRepository {
     ip: string,
     userAgent: string
   ) {
-    const trialEnabled = this.isGlobalTrialEnabled();
     return this._organization.model.organization.create({
       data: {
         name: body.company,
         apiKey: AuthService.fixedEncryption(makeId(20)),
-        allowTrial: trialEnabled,
-        isTrailing: trialEnabled,
+        allowTrial: false,
+        isTrailing: false,
         users: {
           create: {
             role: Role.SUPERADMIN,
@@ -410,46 +513,6 @@ export class OrganizationRepository {
           userId,
           organizationId: orgId,
         },
-      },
-    });
-  }
-
-  updateTrialFlags(
-    orgId: string,
-    data: { allowTrial?: boolean; isTrailing?: boolean }
-  ) {
-    if (!this.isGlobalTrialEnabled()) {
-      return this._organization.model.organization.update({
-        where: {
-          id: orgId,
-        },
-        data: {
-          allowTrial: false,
-          isTrailing: false,
-        },
-      });
-    }
-
-    return this._organization.model.organization.update({
-      where: {
-        id: orgId,
-      },
-      data: {
-        ...(data.allowTrial === undefined
-          ? {}
-          : { allowTrial: data.allowTrial }),
-        ...(data.isTrailing === undefined
-          ? {}
-          : { isTrailing: data.isTrailing }),
-      },
-    });
-  }
-
-  disableAllTrials() {
-    return this._organization.model.organization.updateMany({
-      data: {
-        allowTrial: false,
-        isTrailing: false,
       },
     });
   }

@@ -362,7 +362,7 @@ export const TopMenu: FC = () => {
           // @ts-ignore
           user?.orgId &&
             // @ts-ignore
-            (user.tier !== 'FREE' || !isGeneral || !billingEnabled) &&
+            (user?.tier?.current !== 'FREE' || !isGeneral || !billingEnabled) &&
             firstMenu
               .filter((f) => {
                 if (f.hide) {

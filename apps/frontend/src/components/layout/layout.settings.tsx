@@ -75,7 +75,7 @@ export const LayoutSettings = ({ children }: { children: ReactNode }) => {
         showDevConsole={false}
       >
         <MantineWrapper>
-          {user.tier === 'FREE' && searchParams.get('check') && (
+          {user?.tier?.current === 'FREE' && searchParams.get('check') && (
             <CheckPayment check={searchParams.get('check')!} mutate={mutate} />
           )}
           <ToolTip />
@@ -115,7 +115,7 @@ export const LayoutSettings = ({ children }: { children: ReactNode }) => {
                 </div>
               </Link>
               {user?.orgId &&
-              (user.tier !== 'FREE' || !isGeneral || !billingEnabled) ? (
+              (user?.tier?.current !== 'FREE' || !isGeneral || !billingEnabled) ? (
                 <TopMenu />
               ) : (
                 <></>
@@ -134,7 +134,7 @@ export const LayoutSettings = ({ children }: { children: ReactNode }) => {
             </nav>
             <div className="flex-1 flex">
               <div className="flex-1 rounded-3xl px-0 py-[17px] flex flex-col">
-                {user.tier === 'FREE' && isGeneral && billingEnabled ? (
+                {user?.tier?.current === 'FREE' && isGeneral && billingEnabled ? (
                   <>
                     <div className="text-center mb-[20px] text-xl [@media(max-width:1024px)]:text-xl">
                       <h1 className="text-3xl [@media(max-width:1024px)]:text-xl">

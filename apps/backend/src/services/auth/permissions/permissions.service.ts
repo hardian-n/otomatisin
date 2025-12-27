@@ -1,6 +1,5 @@
 import { Ability, AbilityBuilder, AbilityClass } from '@casl/ability';
 import { Injectable } from '@nestjs/common';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
@@ -21,17 +20,26 @@ export class PermissionsService {
   async getPackageOptions(orgId: string) {
     const subscription =
       await this._subscriptionService.getSubscriptionByOrganizationId(orgId);
+    const plan = subscription?.plan || (await this._subscriptionService.getPlanForOrg(orgId));
 
-    const tier =
-      subscription?.subscriptionTier ||
-      (!process.env.STRIPE_PUBLISHABLE_KEY ? 'PRO' : 'FREE');
+    const channelLimit = plan?.channelLimitUnlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, Number(plan?.channelLimit ?? 0));
+    const postLimitMonthly = plan?.postLimitMonthlyUnlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, Number(plan?.postLimitMonthly ?? 0));
+    const memberLimit = plan?.memberLimitUnlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, Number(plan?.memberLimit ?? 0));
 
-    const { channel, ...all } = pricing[tier];
     return {
       subscription,
+      plan,
       options: {
-        ...all,
-        ...{ channel: tier === 'FREE' ? channel : -10 },
+        channel: channelLimit,
+        posts_per_month: postLimitMonthly,
+        team_members: memberLimit > 1,
+        webhooks: Number.MAX_SAFE_INTEGER,
       },
     };
   }
@@ -46,10 +54,7 @@ export class PermissionsService {
       Ability<[AuthorizationActions, Sections]>
     >(Ability as AbilityClass<AppAbility>);
 
-    if (
-      requestedPermission.length === 0 ||
-      !process.env.STRIPE_PUBLISHABLE_KEY
-    ) {
+    if (requestedPermission.length === 0) {
       for (const [action, section] of requestedPermission) {
         can(action, section);
       }
@@ -70,8 +75,7 @@ export class PermissionsService {
         ).filter((f) => !f.refreshNeeded).length;
 
         if (
-          (options.channel && options.channel > totalChannels) ||
-          (subscription?.totalChannels || 0) > totalChannels
+          (options.channel && options.channel > totalChannels)
         ) {
           can(action, section);
           continue;
@@ -119,31 +123,22 @@ export class PermissionsService {
         continue;
       }
 
-      if (
-        section === Sections.COMMUNITY_FEATURES &&
-        options.community_features
-      ) {
+      if (section === Sections.COMMUNITY_FEATURES) {
         can(action, section);
         continue;
       }
 
-      if (
-        section === Sections.FEATURED_BY_GITROOM &&
-        options.featured_by_gitroom
-      ) {
+      if (section === Sections.FEATURED_BY_GITROOM) {
         can(action, section);
         continue;
       }
 
-      if (section === Sections.AI && options.ai) {
+      if (section === Sections.AI) {
         can(action, section);
         continue;
       }
 
-      if (
-        section === Sections.IMPORT_FROM_CHANNELS &&
-        options.import_from_channels
-      ) {
+      if (section === Sections.IMPORT_FROM_CHANNELS) {
         can(action, section);
       }
     }

@@ -30,7 +30,6 @@ import { SignaturesComponent } from '@gitroom/frontend/components/settings/signa
 import { Autopost } from '@gitroom/frontend/components/autopost/autopost';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { SVGLine } from '@gitroom/frontend/components/launches/launches.component';
-import { GlobalSettings } from '@gitroom/frontend/components/settings/global.settings';
 import { TelegramSettings } from '@gitroom/frontend/components/settings/telegram.settings';
 import { XSettings } from '@gitroom/frontend/components/settings/x.settings';
 export const SettingsPopup: FC<{
@@ -83,12 +82,11 @@ export const SettingsPopup: FC<{
     close();
   }, []);
 
-  const [tab, setTab] = useState('global_settings');
+  const [tab, setTab] = useState('telegram');
 
   const t = useT();
   const list = useMemo(() => {
     const arr = [];
-    arr.push({ tab: 'global_settings', label: t('global_settings', 'Global Settings') });
     if (isGeneral) {
       arr.push({ tab: 'telegram', label: t('telegram', 'Telegram') });
       arr.push({ tab: 'x', label: t('x', 'X') });
@@ -115,6 +113,15 @@ export const SettingsPopup: FC<{
 
     return arr;
   }, [user, isGeneral, showLogout, t]);
+
+  useEffect(() => {
+    if (!list.length) {
+      return;
+    }
+    if (!list.some((item) => item.tab === tab)) {
+      setTab(list[0].tab);
+    }
+  }, [list, tab]);
 
   useEffect(() => {
     loadProfile();
@@ -165,11 +172,6 @@ export const SettingsPopup: FC<{
                 !getRef && 'rounded-[4px]'
               )}
             >
-              {tab === 'global_settings' && (
-                <div>
-                  <GlobalSettings />
-                </div>
-              )}
               {tab === 'telegram' && isGeneral && (
                 <div>
                   <TelegramSettings />
