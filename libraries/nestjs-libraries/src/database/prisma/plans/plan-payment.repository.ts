@@ -82,4 +82,17 @@ export class PlanPaymentRepository {
       take: params.take,
     });
   }
+
+  getLatestPendingPayment(organizationId: string) {
+    return this._payment.model.planPayment.findFirst({
+      where: {
+        organizationId,
+        status: 'PENDING',
+      },
+      include: {
+        plan: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

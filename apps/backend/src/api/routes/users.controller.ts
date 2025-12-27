@@ -52,11 +52,11 @@ export class UsersController {
     }
 
     const impersonate = req.cookies.impersonate || req.headers.impersonate;
-    const subscription = await this._subscriptionService.getSubscriptionByOrganizationId(
+    const access = await this._subscriptionService.getSubscriptionAccessForOrg(
       organization.id
     );
-    const plan =
-      subscription?.plan || (await this._plansService.getDefaultPlan());
+    const subscription = access.subscription;
+    const plan = access.accessPlan;
     const planKey = plan?.key || 'FREE';
     const totalChannels = plan?.channelLimitUnlimited
       ? Number.MAX_SAFE_INTEGER
@@ -88,6 +88,7 @@ export class UsersController {
       impersonate: !!impersonate,
       isTrailing: subscription?.status === 'TRIAL',
       allowTrial: plan?.trialEnabled ?? false,
+      billingBlocked: access.billingBlocked,
       // @ts-ignore
       publicApi: organization?.users[0]?.role === 'SUPERADMIN' || organization?.users[0]?.role === 'ADMIN' ? organization?.apiKey : '',
     };

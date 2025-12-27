@@ -660,7 +660,10 @@ export class IntegrationsController {
     @GetOrgFromRequest() org: Organization,
     @Body('id') id: string
   ) {
-    const plan = await this._subscriptionService.getPlanForOrg(org.id);
+    const access = await this._subscriptionService.getSubscriptionAccessForOrg(
+      org.id
+    );
+    const plan = access.accessPlan;
     const channelLimit = plan?.channelLimitUnlimited
       ? Number.MAX_SAFE_INTEGER
       : Math.max(0, Number(plan?.channelLimit ?? 0));

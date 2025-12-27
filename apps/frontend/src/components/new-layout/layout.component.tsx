@@ -1,6 +1,6 @@
- 'use client';
+'use client';
 
-import React, { ReactNode, useCallback } from 'react';
+import React, { ReactNode, useCallback, useEffect } from 'react';
 import { Logo } from '@gitroom/frontend/components/new-layout/logo';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 const ModeComponent = dynamic(
@@ -14,7 +14,7 @@ import clsx from 'clsx';
 import dynamic from 'next/dynamic';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { CheckPayment } from '@gitroom/frontend/components/layout/check.payment';
 import { ToolTip } from '@gitroom/frontend/components/layout/top.tip';
@@ -52,6 +52,8 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
 
   const { backendUrl, billingEnabled, isGeneral } = useVariables();
   const { firstMenu, secondMenu } = useMenuItem();
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Feedback icon component attaches Sentry feedback to a top-bar icon when DSN is present
   const searchParams = useSearchParams();
@@ -66,7 +68,17 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     refreshWhenHidden: false,
   });
 
+  useEffect(() => {
+    if (user?.billingBlocked && pathname !== '/billing/invoice') {
+      router.replace('/billing/invoice');
+    }
+  }, [user?.billingBlocked, pathname, router]);
+
   if (!user) return null;
+
+  if (user?.billingBlocked && pathname !== '/billing/invoice') {
+    return null;
+  }
 
   const isAdmin = !!(user as any)?.admin;
   const canShowMenuItem = (item: {

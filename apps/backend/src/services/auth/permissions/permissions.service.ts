@@ -18,9 +18,10 @@ export class PermissionsService {
     private _webhooksService: WebhooksService
   ) {}
   async getPackageOptions(orgId: string) {
-    const subscription =
-      await this._subscriptionService.getSubscriptionByOrganizationId(orgId);
-    const plan = subscription?.plan || (await this._subscriptionService.getPlanForOrg(orgId));
+    const access =
+      await this._subscriptionService.getSubscriptionAccessForOrg(orgId);
+    const subscription = access.subscription;
+    const plan = access.accessPlan;
 
     const channelLimit = plan?.channelLimitUnlimited
       ? Number.MAX_SAFE_INTEGER
@@ -39,7 +40,7 @@ export class PermissionsService {
         channel: channelLimit,
         posts_per_month: postLimitMonthly,
         team_members: memberLimit > 1,
-        webhooks: Number.MAX_SAFE_INTEGER,
+        webhooks: plan ? Number.MAX_SAFE_INTEGER : 0,
       },
     };
   }

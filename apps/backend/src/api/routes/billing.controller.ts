@@ -11,6 +11,7 @@ import { Request } from 'express';
 import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
+import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
 
 @ApiTags('Billing')
 @Controller('/billing')
@@ -20,7 +21,8 @@ export class BillingController {
     private _stripeService: StripeService,
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments,
-    private _plansService: PlansService
+    private _plansService: PlansService,
+    private _planPaymentRepository: PlanPaymentRepository
   ) {}
 
   @Get('/check/:id')
@@ -101,6 +103,29 @@ export class BillingController {
   async getPlans(@GetOrgFromRequest() org: Organization) {
     return {
       plans: await this._plansService.listPlans(false),
+    };
+  }
+
+  @Get('/invoice')
+  async getInvoice(@GetOrgFromRequest() org: Organization) {
+    const subscription =
+      await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
+    const payment =
+      await this._planPaymentRepository.getLatestPendingPayment(org.id);
+    const plan =
+      payment?.plan ||
+      subscription?.plan ||
+      (await this._plansService.getDefaultPlan());
+
+    return {
+      pending: subscription?.status === 'PENDING',
+      amount: payment?.amount ?? plan?.price ?? 0,
+      currency: payment?.currency || plan?.currency || 'IDR',
+      paymentMethod: payment?.paymentMethod || null,
+      provider: payment?.provider || null,
+      checkoutUrl: payment?.checkoutUrl || null,
+      expiresAt: payment?.expiresAt || null,
+      plan,
     };
   }
 

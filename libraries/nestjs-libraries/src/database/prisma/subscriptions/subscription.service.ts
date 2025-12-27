@@ -87,12 +87,32 @@ export class SubscriptionService {
   }
 
   async getPlanForOrg(organizationId: string) {
+    const access = await this.getSubscriptionAccessForOrg(organizationId);
+    return access.accessPlan;
+  }
+
+  async getSubscriptionAccessForOrg(organizationId: string) {
     const subscription = await this.ensureSubscriptionForOrg(organizationId);
-    if (subscription?.plan) {
-      return subscription.plan;
+    const plan = subscription?.plan || (await this._plansService.getDefaultPlan());
+    let accessPlan = plan;
+    let billingBlocked = false;
+
+    if (subscription?.status === 'PENDING') {
+      if (plan?.trialEnabled) {
+        const freePlan = await this._plansService.getPlanByKey('FREE');
+        accessPlan = freePlan || (await this._plansService.getDefaultPlan());
+      } else {
+        accessPlan = null;
+        billingBlocked = true;
+      }
     }
 
-    return this._plansService.getDefaultPlan();
+    return {
+      subscription,
+      plan,
+      accessPlan,
+      billingBlocked,
+    };
   }
 
   useCredit<T>(organization: Organization, type = 'ai_images', func: () => Promise<T>) : Promise<T> {
@@ -234,8 +254,9 @@ export class SubscriptionService {
   }
 
   async checkCredits(organization: Organization, checkType = 'ai_images') {
-    const subscription = await this.ensureSubscriptionForOrg(organization.id);
-    const plan = subscription?.plan;
+    const access = await this.getSubscriptionAccessForOrg(organization.id);
+    const subscription = access.subscription;
+    const plan = access.accessPlan;
     const limit = plan?.postLimitMonthlyUnlimited
       ? Number.MAX_SAFE_INTEGER
       : Math.max(0, Number(plan?.postLimitMonthly ?? 0));
