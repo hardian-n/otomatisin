@@ -4,7 +4,6 @@ import { Slider } from '@gitroom/react/form/slider';
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@gitroom/react/form/button';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
-import { Subscription } from '@prisma/client';
 import { useDebouncedCallback } from 'use-debounce';
 import ReactLoading from 'react-loading';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
@@ -33,12 +32,33 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { FinishTrial } from '@gitroom/frontend/components/billing/finish.trial';
 import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
 
-type PlanTier = 'FREE' | 'STANDARD' | 'TEAM' | 'PRO' | 'ULTIMATE';
+type PlanTier =
+  | 'FREE'
+  | 'BASIC'
+  | 'ENTERPRISE'
+  | 'STANDARD'
+  | 'TEAM'
+  | 'PRO'
+  | 'ULTIMATE';
 
 type PlanConfig = {
   tier: PlanTier;
   visible: boolean;
   pricing: PricingInnerInterface;
+};
+
+type BillingSubscription = {
+  id?: string;
+  status?: string;
+  planId?: string | null;
+  subscriptionTier?: PlanTier;
+  period?: 'MONTHLY' | 'YEARLY';
+  totalChannels?: number;
+  cancelAt?: string | null;
+  canceledAt?: string | null;
+  startsAt?: string | Date;
+  endsAt?: string | Date | null;
+  trialEndsAt?: string | Date | null;
 };
 
 const buildDefaultPlans = (): PlanConfig[] =>
@@ -233,7 +253,7 @@ const Info: FC<{
   );
 };
 export const MainBillingComponent: FC<{
-  sub?: Subscription;
+  sub?: BillingSubscription;
 }> = (props) => {
   const { sub } = props;
   const { isGeneral } = useVariables();
@@ -253,12 +273,14 @@ export const MainBillingComponent: FC<{
     !!queryParams.get('finishTrial')
   );
 
-  const [subscription, setSubscription] = useState<Subscription | undefined>(
+  const [subscription, setSubscription] = useState<
+    BillingSubscription | undefined
+  >(
     sub
   );
   const [loading, setLoading] = useState<boolean>(false);
   const [period, setPeriod] = useState<'MONTHLY' | 'YEARLY'>(
-    subscription?.period || 'MONTHLY'
+    sub?.period || 'MONTHLY'
   );
   const [monthlyOrYearly, setMonthlyOrYearly] = useState<'on' | 'off'>(
     period === 'MONTHLY' ? 'off' : 'on'
@@ -284,10 +306,11 @@ export const MainBillingComponent: FC<{
     if (initialChannels !== sub?.totalChannels) {
       setInitialChannels(sub?.totalChannels || 1);
     }
-    if (period !== sub?.period) {
-      setPeriod(sub?.period || 'MONTHLY');
+    const nextPeriod = sub?.period || 'MONTHLY';
+    if (period !== nextPeriod) {
+      setPeriod(nextPeriod);
       setMonthlyOrYearly(
-        (sub?.period || 'MONTHLY') === 'MONTHLY' ? 'off' : 'on'
+        nextPeriod === 'MONTHLY' ? 'off' : 'on'
       );
     }
     setSubscription(sub);
@@ -297,8 +320,14 @@ export const MainBillingComponent: FC<{
     window.location.href = portal;
   }, []);
   const currentPackage = useMemo(() => {
+    const resolvedTier =
+      subscription?.subscriptionTier ||
+      user?.plan?.key ||
+      user?.tier?.current ||
+      'FREE';
+    const normalizedTier = resolvedTier.toUpperCase() as PlanTier;
     if (!subscription) {
-      return 'FREE';
+      return normalizedTier;
     }
     if (period === 'YEARLY' && monthlyOrYearly === 'off') {
       return '';
@@ -306,11 +335,12 @@ export const MainBillingComponent: FC<{
     if (period === 'MONTHLY' && monthlyOrYearly === 'on') {
       return '';
     }
-    return subscription?.subscriptionTier;
-  }, [subscription, initialChannels, monthlyOrYearly, period]);
+    return normalizedTier;
+  }, [subscription, initialChannels, monthlyOrYearly, period, user]);
   const planMap = useMemo(() => {
     return new Map(plans.map((plan) => [plan.tier, plan]));
   }, [plans]);
+  const cancelAt = subscription?.cancelAt ?? subscription?.canceledAt ?? null;
   const visiblePlans = useMemo(() => {
     return plans.filter(
       (plan) => plan.visible && (!isGeneral || plan.tier !== 'FREE')
@@ -344,9 +374,7 @@ export const MainBillingComponent: FC<{
 
         const messages = [];
         const nextPlan = planMap.get(billing);
-        const currentPlan = planMap.get(
-          (subscription?.subscriptionTier as PlanTier) || 'FREE'
-        );
+        const currentPlan = planMap.get((currentPackage as PlanTier) || 'FREE');
         if (
           nextPlan &&
           currentPlan &&
@@ -358,9 +386,9 @@ export const MainBillingComponent: FC<{
           );
         }
         if (billing === 'FREE') {
-          if (
-            subscription?.cancelAt ||
-            (await deleteDialog(
+            if (
+              cancelAt ||
+              (await deleteDialog(
               `Are you sure you want to cancel your subscription?
               ${messages.join(', ')}`,
               'Yes, cancel',
@@ -418,6 +446,7 @@ export const MainBillingComponent: FC<{
             setSubscription((subs) => ({
               ...subs!,
               cancelAt: cancel_at,
+              canceledAt: cancel_at,
             }));
             if (cancel_at)
               toast.show('Subscription set to canceled successfully');
@@ -470,6 +499,7 @@ export const MainBillingComponent: FC<{
             ...subs!,
             subscriptionTier: billing,
             cancelAt: null,
+            canceledAt: null,
           }));
           mutate(
             '/user/self',
@@ -547,7 +577,7 @@ export const MainBillingComponent: FC<{
                   <Button
                     loading={loading}
                     disabled={
-                      (!!subscription?.cancelAt && name === 'FREE') ||
+                      (!!cancelAt && name === 'FREE') ||
                       currentPackage === name
                     }
                     className={clsx(
@@ -558,9 +588,9 @@ export const MainBillingComponent: FC<{
                     {currentPackage === name
                       ? 'Current Plan'
                       : name === 'FREE'
-                      ? subscription?.cancelAt
+                      ? cancelAt
                         ? `Downgrade on ${dayjs
-                            .utc(subscription?.cancelAt)
+                            .utc(cancelAt)
                             .local()
                             .format('D MMM, YYYY')}`
                         : 'Cancel subscription'
@@ -584,7 +614,7 @@ export const MainBillingComponent: FC<{
           );
         })}
       </div>
-      {!subscription?.id && <PurchaseCrypto />}
+        {!subscription?.id && <PurchaseCrypto />}
       {!!subscription?.id && (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center mt-[20px] gap-[10px]">
           <Button className="w-full sm:w-auto" onClick={updatePayment}>
@@ -593,7 +623,7 @@ export const MainBillingComponent: FC<{
               'Update Payment Method / Invoices History'
             )}
           </Button>
-          {isGeneral && !subscription?.cancelAt && (
+          {isGeneral && !cancelAt && (
             <Button
               className="bg-red-500 w-full sm:w-auto"
               loading={loading}
@@ -604,13 +634,13 @@ export const MainBillingComponent: FC<{
           )}
         </div>
       )}
-      {subscription?.cancelAt && isGeneral && (
+      {cancelAt && isGeneral && (
         <div className="text-center">
           {t(
             'your_subscription_will_be_canceled_at',
             'Your subscription will be canceled at'
           )}{' '}
-          {newDayjs(subscription.cancelAt).local().format('D MMM, YYYY')}
+          {newDayjs(cancelAt).local().format('D MMM, YYYY')}
           <br />
           {t(
             'you_will_never_be_charged_again',
