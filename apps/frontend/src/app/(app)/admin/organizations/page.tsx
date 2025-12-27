@@ -315,13 +315,13 @@ export default function AdminOrganizationsPage() {
                           </div>
                         </td>
                         <td className="px-[12px] py-[10px]">
-                          {plan ? plan.name : '—'}
+                          {plan ? plan.name : '-'}
                         </td>
                         <td className="px-[12px] py-[10px]">
-                          {org.subscription?.status || '—'}
+                          {org.subscription?.status || '-'}
                         </td>
                         <td className="px-[12px] py-[10px]">
-                          {formatDate(org.subscription?.endsAt) || '—'}
+                          {formatDate(org.subscription?.endsAt) || '-'}
                         </td>
                       </tr>
                     );
