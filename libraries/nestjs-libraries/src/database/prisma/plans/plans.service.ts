@@ -312,4 +312,19 @@ export class PlansService implements OnModuleInit {
 
     return this._planRepository.updatePlan(id, updateData);
   }
+
+  async deletePlan(id: string) {
+    const usage = await this._planRepository.getPlanUsage(id);
+    if (!usage) {
+      throw new Error('Plan not found');
+    }
+    if (usage.isDefault) {
+      throw new Error('Default plan cannot be deleted');
+    }
+    if (usage._count.subscriptions > 0 || usage._count.payments > 0) {
+      throw new Error('Plan is in use and cannot be deleted');
+    }
+
+    return this._planRepository.deletePlan(id);
+  }
 }

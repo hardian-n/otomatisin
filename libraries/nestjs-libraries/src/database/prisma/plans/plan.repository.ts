@@ -83,6 +83,29 @@ export class PlanRepository {
     });
   }
 
+  getPlanUsage(id: string) {
+    return this._plan.model.plan.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        key: true,
+        isDefault: true,
+        _count: {
+          select: {
+            subscriptions: true,
+            payments: true,
+          },
+        },
+      },
+    });
+  }
+
+  deletePlan(id: string) {
+    return this._plan.model.plan.delete({
+      where: { id },
+    });
+  }
+
   clearDefaultPlan() {
     return this._plan.model.plan.updateMany({
       data: { isDefault: false },

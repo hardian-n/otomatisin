@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.request';
 import { User } from '@prisma/client';
@@ -178,5 +178,21 @@ export class AdminPlansController {
         ? { autoreplyLimitUnlimited: body.autoreplyLimitUnlimited }
         : {}),
     });
+  }
+
+  @Delete('/:id')
+  async deletePlan(
+    @GetUserFromRequest() user: User,
+    @Param('id') id: string
+  ) {
+    if (!user.isSuperAdmin) {
+      throw new HttpForbiddenException();
+    }
+
+    try {
+      return await this._plansService.deletePlan(id);
+    } catch (err: any) {
+      throw new BadRequestException(err?.message || 'Failed to delete plan');
+    }
   }
 }

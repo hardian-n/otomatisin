@@ -95,10 +95,23 @@ export default function AdminPlansPage() {
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [selected, setSelected] = useState<PlanConfig | null>(null);
   const [form, setForm] = useState<PlanForm>(buildDefaultForm());
 
   const isAdmin = !!(user as any)?.admin;
+
+  const ensureOk = async (res: Response, fallback: string) => {
+    if (res.ok) return;
+    let message = fallback;
+    try {
+      const data = await res.json();
+      if (data?.message) {
+        message = data.message;
+      }
+    } catch {}
+    throw new Error(message);
+  };
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
@@ -188,16 +201,18 @@ export default function AdminPlansPage() {
       };
 
       if (selected) {
-        await fetcher(`/admin/plans/${selected.id}`, {
+        const res = await fetcher(`/admin/plans/${selected.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
+        await ensureOk(res, 'Failed to update plan');
         toaster.show('Plan updated', 'success');
       } else {
-        await fetcher('/admin/plans', {
+        const res = await fetcher('/admin/plans', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
+        await ensureOk(res, 'Failed to create plan');
         toaster.show('Plan created', 'success');
       }
 
@@ -214,6 +229,30 @@ export default function AdminPlansPage() {
       setSaving(false);
     }
   }, [form, selected, loadPlans]);
+
+  const onDelete = useCallback(async () => {
+    if (!selected) return;
+    if (!confirm(`Delete plan "${selected.name}"?`)) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetcher(`/admin/plans/${selected.id}`, {
+        method: 'DELETE',
+      });
+      await ensureOk(res, 'Failed to delete plan');
+      toaster.show('Plan deleted', 'success');
+      const list = await loadPlans();
+      setSelected(null);
+      setForm(buildDefaultForm());
+      if (list.length === 0) {
+        startNewPlan();
+      }
+    } catch (err: any) {
+      toaster.show(err?.message || 'Failed to delete plan', 'warning');
+    } finally {
+      setDeleting(false);
+    }
+  }, [selected, loadPlans, startNewPlan]);
 
   const hasSelection = !!selected;
   const toNumber = (value: any) => (Number.isFinite(value) ? value : 0);
@@ -648,6 +687,16 @@ export default function AdminPlansPage() {
               <Button type="button" onClick={onSave} loading={saving}>
                 Save changes
               </Button>
+              {hasSelection && (
+                <Button
+                  type="button"
+                  secondary
+                  onClick={onDelete}
+                  loading={deleting}
+                >
+                  Delete plan
+                </Button>
+              )}
             </div>
           </div>
         </div>
