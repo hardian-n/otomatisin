@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
@@ -12,6 +21,7 @@ import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
+import { DuitkuService } from '@gitroom/nestjs-libraries/services/duitku.service';
 
 @ApiTags('Billing')
 @Controller('/billing')
@@ -22,7 +32,8 @@ export class BillingController {
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments,
     private _plansService: PlansService,
-    private _planPaymentRepository: PlanPaymentRepository
+    private _planPaymentRepository: PlanPaymentRepository,
+    private _duitkuService: DuitkuService
   ) {}
 
   @Get('/check/:id')
@@ -67,12 +78,29 @@ export class BillingController {
   }
 
   @Post('/subscribe')
-  subscribe(
+  async subscribe(
     @GetOrgFromRequest() org: Organization,
     @GetUserFromRequest() user: User,
     @Body() body: BillingSubscribeDto,
     @Req() req: Request
   ) {
+    if (body.planId || body.planKey) {
+      return this._duitkuService.createPayment({
+        organizationId: org.id,
+        userId: user.id,
+        planId: body.planId,
+        planKey: body.planKey,
+        paymentMethod: body.paymentMethod,
+        returnUrl: body.returnUrl,
+        customerName: user.name || user.email,
+        customerEmail: user.email,
+      });
+    }
+
+    if (!body.period || !body.billing) {
+      throw new BadRequestException('Missing billing period or tier');
+    }
+
     const uniqueId = req?.cookies?.track;
     return this._stripeService.subscribe(
       uniqueId,
@@ -103,6 +131,30 @@ export class BillingController {
   async getPlans(@GetOrgFromRequest() org: Organization) {
     return {
       plans: await this._plansService.listPlans(false),
+    };
+  }
+
+  @Get('/duitku/methods')
+  async getDuitkuMethods(
+    @Query('planId') planId?: string,
+    @Query('amount') amount?: string
+  ) {
+    if (planId) {
+      const plan = await this._plansService.getPlanById(planId);
+      if (!plan) {
+        throw new BadRequestException('Plan not found');
+      }
+      return {
+        methods: await this._duitkuService.getPaymentMethods(plan.price),
+      };
+    }
+
+    if (!amount) {
+      throw new BadRequestException('Amount is required');
+    }
+
+    return {
+      methods: await this._duitkuService.getPaymentMethods(Number(amount)),
     };
   }
 

@@ -23,6 +23,7 @@ import { AgentGraphInsertService } from '@gitroom/nestjs-libraries/agent/agent.g
 import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
 import { Readable, pipeline } from 'stream';
 import { promisify } from 'util';
+import { DuitkuService } from '@gitroom/nestjs-libraries/services/duitku.service';
 
 const pump = promisify(pipeline);
 
@@ -34,7 +35,8 @@ export class PublicController {
     private _trackService: TrackService,
     private _agentGraphInsertService: AgentGraphInsertService,
     private _postsService: PostsService,
-    private _nowpayments: Nowpayments
+    private _nowpayments: Nowpayments,
+    private _duitkuService: DuitkuService
   ) {}
   @Post('/agent')
   async createAgent(@Body() body: { text: string; apiKey: string }) {
@@ -149,6 +151,12 @@ export class PublicController {
   async cryptoPost(@Body() body: any, @Param('path') path: string) {
     console.log('cryptoPost', body, path);
     return this._nowpayments.processPayment(path, body);
+  }
+
+  @Post('/duitku/callback')
+  async duitkuCallback(@Body() body: any, @Res() res: Response) {
+    await this._duitkuService.handleCallback(body);
+    return res.status(200).send('OK');
   }
 
   @Get('/stream')

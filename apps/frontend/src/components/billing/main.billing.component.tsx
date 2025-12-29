@@ -1,654 +1,394 @@
 'use client';
 
-import { Slider } from '@gitroom/react/form/slider';
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { Button } from '@gitroom/react/form/button';
-import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
-import { useDebouncedCallback } from 'use-debounce';
-import ReactLoading from 'react-loading';
-import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
-import { useToaster } from '@gitroom/react/toaster/toaster';
-import dayjs from 'dayjs';
 import clsx from 'clsx';
-import {
-  pricing,
-  PricingInnerInterface,
-} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
-import { FAQComponent } from '@gitroom/frontend/components/billing/faq.component';
-import { useSWRConfig } from 'swr';
+import { Button } from '@gitroom/react/form/button';
+import { Select } from '@gitroom/react/form/select';
+import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
+import { useToaster } from '@gitroom/react/toaster/toaster';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useVariables } from '@gitroom/react/helpers/variable.context';
-import { useModals } from '@gitroom/frontend/components/layout/new-modal';
-import { TopTitle } from '@gitroom/frontend/components/launches/helpers/top.title.component';
-import { Textarea } from '@gitroom/react/form/textarea';
-import { useFireEvents } from '@gitroom/helpers/utils/use.fire.events';
-import { useUtmUrl } from '@gitroom/helpers/utils/utm.saver';
-import { useTolt } from '@gitroom/frontend/components/layout/tolt.script';
-import { useTrack } from '@gitroom/react/helpers/use.track';
-import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
-import { PurchaseCrypto } from '@gitroom/frontend/components/billing/purchase.crypto';
-import { useT } from '@gitroom/react/translation/get.transation.service.client';
-import { FinishTrial } from '@gitroom/frontend/components/billing/finish.trial';
-import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
+import { useSWRConfig } from 'swr';
+import { useRouter } from 'next/navigation';
+import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
 
-type PlanTier =
-  | 'FREE'
-  | 'BASIC'
-  | 'ENTERPRISE'
-  | 'STANDARD'
-  | 'TEAM'
-  | 'PRO'
-  | 'ULTIMATE';
+const FALLBACK_CURRENCY = 'IDR';
 
-type PlanConfig = {
-  tier: PlanTier;
-  visible: boolean;
-  pricing: PricingInnerInterface;
+type Plan = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  currency: string;
+  durationDays: number;
+  trialEnabled: boolean;
+  trialDays: number;
+  isActive: boolean;
+  isDefault: boolean;
+  channelLimit: number | null;
+  channelLimitUnlimited: boolean;
+  postLimitMonthly: number | null;
+  postLimitMonthlyUnlimited: boolean;
+  memberLimit: number | null;
+  memberLimitUnlimited: boolean;
+  storageLimitMb: number | null;
+  storageLimitMbUnlimited: boolean;
+  inboxLimitMonthly: number | null;
+  inboxLimitMonthlyUnlimited: boolean;
+  autoreplyLimit: number | null;
+  autoreplyLimitUnlimited: boolean;
+};
+
+type PaymentMethod = {
+  paymentMethod: string;
+  paymentName?: string;
+  totalFee?: number | string;
+  paymentImage?: string;
 };
 
 type BillingSubscription = {
   id?: string;
-  status?: string;
+  status?: 'PENDING' | 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELED' | string;
   planId?: string | null;
-  subscriptionTier?: PlanTier;
-  period?: 'MONTHLY' | 'YEARLY';
-  totalChannels?: number;
-  cancelAt?: string | null;
-  canceledAt?: string | null;
+  plan?: { id: string; key: string; name: string } | null;
   startsAt?: string | Date;
   endsAt?: string | Date | null;
   trialEndsAt?: string | Date | null;
+  canceledAt?: string | Date | null;
 };
 
-const buildDefaultPlans = (): PlanConfig[] =>
-  (Object.entries(pricing) as [PlanTier, PricingInnerInterface][]).map(
-    ([tier, value]) => ({
-      tier,
-      visible: true,
-      pricing: {
-        ...value,
-        current: tier,
-      },
-    })
-  );
-
-export const Prorate: FC<{
-  period: 'MONTHLY' | 'YEARLY';
-  pack: 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE';
-}> = (props) => {
-  const { period, pack } = props;
-  const t = useT();
-  const fetch = useFetch();
-  const [price, setPrice] = useState<number | false>(0);
-  const [loading, setLoading] = useState(false);
-  const calculatePrice = useDebouncedCallback(async () => {
-    setLoading(true);
-    setPrice(
-      (
-        await (
-          await fetch('/billing/prorate', {
-            method: 'POST',
-            body: JSON.stringify({
-              period,
-              billing: pack,
-            }),
-          })
-        ).json()
-      ).price
-    );
-    setLoading(false);
-  }, 500);
-  useEffect(() => {
-    setPrice(false);
-    calculatePrice();
-  }, [period, pack]);
-  if (loading) {
-    return (
-      <div className="pt-[12px]">
-        <ReactLoading type="spin" color="#fff" width={20} height={20} />
-      </div>
-    );
+const formatAmount = (amount: number, currency?: string) => {
+  const value = Number(amount || 0);
+  try {
+    const formatted = new Intl.NumberFormat('id-ID').format(value);
+    return `${currency || FALLBACK_CURRENCY} ${formatted}`;
+  } catch {
+    return `${currency || FALLBACK_CURRENCY} ${value}`;
   }
-  if (price === false) {
-    return null;
+};
+
+const formatLimit = (value: number | null, unlimited: boolean) => {
+  if (unlimited) {
+    return 'Unlimited';
   }
-  return (
-    <div className="text-[12px] flex pt-[12px]">
-      ({t('pay_today', 'Pay Today')} ${(price < 0 ? 0 : price)?.toFixed(1)})
-    </div>
-  );
-};
-export const Features: FC<{
-  plan: PricingInnerInterface;
-}> = (props) => {
-  const { plan } = props;
-  const features = useMemo(() => {
-    const currentPricing = plan;
-    const channelsOr = currentPricing.channel || 0;
-    const list = [];
-    list.push(`${channelsOr} ${channelsOr === 1 ? 'channel' : 'channels'}`);
-    list.push(
-      `${
-        currentPricing.posts_per_month > 10000
-          ? 'Unlimited'
-          : currentPricing.posts_per_month
-      } posts per month`
-    );
-    if (currentPricing.team_members) {
-      list.push(`Unlimited team members`);
-    }
-    if (currentPricing?.ai) {
-      list.push(`AI auto-complete`);
-      list.push(`AI copilots`);
-      list.push(`AI Autocomplete`);
-    }
-    list.push(`Advanced Picture Editor`);
-    if (currentPricing?.image_generator) {
-      list.push(
-        `${currentPricing?.image_generation_count} AI Images per month`
-      );
-    }
-    if (currentPricing?.generate_videos) {
-      list.push(`${currentPricing?.generate_videos} AI Videos per month`);
-    }
-    return list;
-  }, [plan]);
-  return (
-    <div className="flex flex-col gap-[10px] justify-center text-[16px] text-customColor18">
-      {features.map((feature) => (
-        <div key={feature} className="flex gap-[20px]">
-          <div>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <path
-                d="M16.2806 9.21937C16.3504 9.28903 16.4057 9.37175 16.4434 9.46279C16.4812 9.55384 16.5006 9.65144 16.5006 9.75C16.5006 9.84856 16.4812 9.94616 16.4434 10.0372C16.4057 10.1283 16.3504 10.211 16.2806 10.2806L11.0306 15.5306C10.961 15.6004 10.8783 15.6557 10.7872 15.6934C10.6962 15.7312 10.5986 15.7506 10.5 15.7506C10.4014 15.7506 10.3038 15.7312 10.2128 15.6934C10.1218 15.6557 10.039 15.6004 9.96938 15.5306L7.71938 13.2806C7.57865 13.1399 7.49959 12.949 7.49959 12.75C7.49959 12.551 7.57865 12.3601 7.71938 12.2194C7.86011 12.0786 8.05098 11.9996 8.25 11.9996C8.44903 11.9996 8.6399 12.0786 8.78063 12.2194L10.5 13.9397L15.2194 9.21937C15.289 9.14964 15.3718 9.09432 15.4628 9.05658C15.5538 9.01884 15.6514 8.99941 15.75 8.99941C15.8486 8.99941 15.9462 9.01884 16.0372 9.05658C16.1283 9.09432 16.211 9.14964 16.2806 9.21937ZM21.75 12C21.75 13.9284 21.1782 15.8134 20.1068 17.4168C19.0355 19.0202 17.5127 20.2699 15.7312 21.0078C13.9496 21.7458 11.9892 21.9389 10.0979 21.5627C8.20656 21.1865 6.46928 20.2579 5.10571 18.8943C3.74215 17.5307 2.81355 15.7934 2.43735 13.9021C2.06114 12.0108 2.25422 10.0504 2.99218 8.26884C3.73013 6.48726 4.97982 4.96451 6.58319 3.89317C8.18657 2.82183 10.0716 2.25 12 2.25C14.585 2.25273 17.0634 3.28084 18.8913 5.10872C20.7192 6.93661 21.7473 9.41498 21.75 12ZM20.25 12C20.25 10.3683 19.7661 8.77325 18.8596 7.41655C17.9531 6.05984 16.6646 5.00242 15.1571 4.37799C13.6497 3.75357 11.9909 3.59019 10.3905 3.90852C8.79017 4.22685 7.32016 5.01259 6.16637 6.16637C5.01259 7.32015 4.22685 8.79016 3.90853 10.3905C3.5902 11.9908 3.75358 13.6496 4.378 15.1571C5.00242 16.6646 6.05984 17.9531 7.41655 18.8596C8.77326 19.7661 10.3683 20.25 12 20.25C14.1873 20.2475 16.2843 19.3775 17.8309 17.8309C19.3775 16.2843 20.2475 14.1873 20.25 12Z"
-                fill="#06ff00"
-              />
-            </svg>
-          </div>
-          <div>{feature}</div>
-        </div>
-      ))}
-    </div>
-  );
+  return String(value ?? 0);
 };
 
-const Accept: FC<{ resolve: (res: boolean) => void }> = ({ resolve }) => {
-  const [loading, setLoading] = useState(false);
-  const fetch = useFetch();
-  const toaster = useToaster();
-
-  const apply = useCallback(async () => {
-    setLoading(true);
-    await fetch('/billing/apply-discount', {
-      method: 'POST',
-    });
-
-    resolve(true);
-    toaster.show('50% discount applied successfully');
-  }, []);
-
-  return (
-    <div>
-      <div className="mb-[20px]">
-        Would you accept 50% discount for 3 months instead? 🙏🏻
-      </div>
-      <div className="flex gap-[10px]">
-        <Button loading={loading} onClick={apply}>
-          Apply 50% discount for 3 months
-        </Button>
-        <Button onClick={() => resolve(false)} className="!bg-red-800">
-          Cancel my subscription
-        </Button>
-      </div>
-    </div>
-  );
+const buildLimitRows = (plan: Plan) => {
+  return [
+    {
+      label: 'Channels',
+      value: formatLimit(plan.channelLimit, plan.channelLimitUnlimited),
+    },
+    {
+      label: 'Posts per month',
+      value: formatLimit(plan.postLimitMonthly, plan.postLimitMonthlyUnlimited),
+    },
+    {
+      label: 'Members',
+      value: formatLimit(plan.memberLimit, plan.memberLimitUnlimited),
+    },
+    {
+      label: 'Storage (MB)',
+      value: formatLimit(plan.storageLimitMb, plan.storageLimitMbUnlimited),
+    },
+    {
+      label: 'Inbox per month',
+      value: formatLimit(plan.inboxLimitMonthly, plan.inboxLimitMonthlyUnlimited),
+    },
+    {
+      label: 'Autoreply',
+      value: formatLimit(plan.autoreplyLimit, plan.autoreplyLimitUnlimited),
+    },
+  ];
 };
-const Info: FC<{
-  proceed: (feedback: string) => void;
-}> = (props) => {
-  const [feedback, setFeedback] = useState('');
-  const modal = useModals();
-  const events = useFireEvents();
-  const cancel = useCallback(() => {
-    props.proceed(feedback);
-    events('cancel_subscription');
-    modal.closeAll();
-  }, [modal, feedback]);
 
-  const t = useT();
-
-  return (
-    <div className="relative flex gap-[20px] flex-col flex-1 rounded-[4px]">
-      <div>
-        {t(
-          'would_you_mind_shortly_tell_us_what_we_could_have_done_better',
-          'Would you mind shortly tell us what we could have done better?'
-        )}
-      </div>
-      <div>
-        <Textarea
-          className="bg-newBgColorInner"
-          label={'Feedback'}
-          name="feedback"
-          disableForm={true}
-          value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
-        />
-      </div>
-      <div>
-        <Button disabled={feedback.length < 20} onClick={cancel}>
-          {feedback.length < 20
-            ? t('please_add_at_least', 'Please add at least 20 chars')
-            : t('cancel_subscription', 'Cancel Subscription')}
-        </Button>
-      </div>
-    </div>
-  );
-};
-export const MainBillingComponent: FC<{
-  sub?: BillingSubscription;
-}> = (props) => {
+export const MainBillingComponent: FC<{ sub?: BillingSubscription }> = (props) => {
   const { sub } = props;
-  const { isGeneral } = useVariables();
-  const { mutate } = useSWRConfig();
   const fetch = useFetch();
   const toast = useToaster();
   const user = useUser();
-  const modal = useModals();
   const router = useRouter();
-  const utm = useUtmUrl();
-  const tolt = useTolt();
-  const track = useTrack();
-  const t = useT();
-  const queryParams = useSearchParams();
-  const [plans, setPlans] = useState<PlanConfig[]>(buildDefaultPlans());
-  const [finishTrial, setFinishTrial] = useState(
-    !!queryParams.get('finishTrial')
-  );
+  const { mutate } = useSWRConfig();
 
-  const [subscription, setSubscription] = useState<
-    BillingSubscription | undefined
-  >(
-    sub
-  );
-  const [loading, setLoading] = useState<boolean>(false);
-  const [period, setPeriod] = useState<'MONTHLY' | 'YEARLY'>(
-    sub?.period || 'MONTHLY'
-  );
-  const [monthlyOrYearly, setMonthlyOrYearly] = useState<'on' | 'off'>(
-    period === 'MONTHLY' ? 'off' : 'on'
-  );
-  const [initialChannels, setInitialChannels] = useState(
-    sub?.totalChannels || 1
-  );
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [loadingMethods, setLoadingMethods] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const subscription: BillingSubscription | undefined = sub || user?.subscription || undefined;
+  const currentPlanId =
+    subscription?.planId || subscription?.plan?.id || user?.plan?.id || null;
+
+  const isPending = subscription?.status === 'PENDING';
+
+  const loadPlans = useCallback(async () => {
+    setLoadingPlans(true);
+    try {
+      const res = await fetch('/billing/plans');
+      const data = await res.json();
+      const list = Array.isArray(data?.plans) ? (data.plans as Plan[]) : [];
+      setPlans(list);
+    } catch {
+      toast.show('Failed to load plans');
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const loadPlans = async () => {
-      try {
-        const res = await fetch('/billing/plans');
-        const data = await res.json();
-        if (Array.isArray(data?.plans)) {
-          setPlans(data.plans as PlanConfig[]);
-        }
-      } catch {
-        setPlans(buildDefaultPlans());
-      }
-    };
     loadPlans();
   }, []);
+
   useEffect(() => {
-    if (initialChannels !== sub?.totalChannels) {
-      setInitialChannels(sub?.totalChannels || 1);
+    if (!plans.length) {
+      return;
     }
-    const nextPeriod = sub?.period || 'MONTHLY';
-    if (period !== nextPeriod) {
-      setPeriod(nextPeriod);
-      setMonthlyOrYearly(
-        nextPeriod === 'MONTHLY' ? 'off' : 'on'
-      );
+    const preferred =
+      plans.find((plan) => plan.id === currentPlanId) ||
+      plans.find((plan) => plan.isDefault) ||
+      plans[0];
+    if (preferred && selectedPlanId !== preferred.id) {
+      setSelectedPlanId(preferred.id);
     }
-    setSubscription(sub);
-  }, [sub]);
-  const updatePayment = useCallback(async () => {
-    const { portal } = await (await fetch('/billing/portal')).json();
-    window.location.href = portal;
-  }, []);
-  const currentPackage = useMemo(() => {
-    const resolvedTier =
-      subscription?.subscriptionTier ||
-      user?.plan?.key ||
-      user?.tier?.current ||
-      'FREE';
-    const normalizedTier = resolvedTier.toUpperCase() as PlanTier;
-    if (!subscription) {
-      return normalizedTier;
+  }, [plans, currentPlanId]);
+
+  const selectedPlan = useMemo(() => {
+    return plans.find((plan) => plan.id === selectedPlanId) || null;
+  }, [plans, selectedPlanId]);
+
+  useEffect(() => {
+    let active = true;
+    const loadMethods = async () => {
+      if (!selectedPlan || selectedPlan.price <= 0) {
+        setMethods([]);
+        setPaymentMethod('');
+        return;
+      }
+      setLoadingMethods(true);
+      try {
+        const res = await fetch(
+          `/billing/duitku/methods?planId=${selectedPlan.id}`
+        );
+        const data = await res.json();
+        const list = Array.isArray(data?.methods)
+          ? (data.methods as PaymentMethod[])
+          : [];
+        if (active) {
+          setMethods(list);
+          setPaymentMethod(list[0]?.paymentMethod || '');
+        }
+      } catch {
+        if (active) {
+          setMethods([]);
+          setPaymentMethod('');
+          toast.show('Failed to load payment methods');
+        }
+      } finally {
+        if (active) {
+          setLoadingMethods(false);
+        }
+      }
+    };
+
+    loadMethods();
+    return () => {
+      active = false;
+    };
+  }, [selectedPlanId, selectedPlan?.price]);
+
+  const handleSubscribe = useCallback(async () => {
+    if (!selectedPlan) {
+      return;
     }
-    if (period === 'YEARLY' && monthlyOrYearly === 'off') {
-      return '';
+
+    if (selectedPlan.price > 0 && !paymentMethod) {
+      toast.show('Select a payment method first');
+      return;
     }
-    if (period === 'MONTHLY' && monthlyOrYearly === 'on') {
-      return '';
+
+    const returnUrl =
+      typeof window !== 'undefined' ? window.location.origin : undefined;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/billing/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: selectedPlan.id,
+          planKey: selectedPlan.key,
+          paymentMethod: selectedPlan.price > 0 ? paymentMethod : undefined,
+          returnUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || 'Failed to subscribe');
+      }
+
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      toast.show('Plan updated successfully');
+      await mutate('/user/self');
+      router.refresh();
+    } catch (err: any) {
+      toast.show(err?.message || 'Failed to subscribe');
+    } finally {
+      setSubmitting(false);
     }
-    return normalizedTier;
-  }, [subscription, initialChannels, monthlyOrYearly, period, user]);
-  const planMap = useMemo(() => {
-    return new Map(plans.map((plan) => [plan.tier, plan]));
-  }, [plans]);
-  const cancelAt = subscription?.cancelAt ?? subscription?.canceledAt ?? null;
-  const visiblePlans = useMemo(() => {
-    return plans.filter(
-      (plan) => plan.visible && (!isGeneral || plan.tier !== 'FREE')
-    );
-  }, [plans, isGeneral]);
-  const moveToCheckout = useCallback(
-    (billing: PlanTier, reactivate = false) =>
-      async () => {
-        if (reactivate) {
-          setLoading(true);
-          const { cancel_at } = await (
-            await fetch('/billing/cancel', {
-              method: 'POST',
-              body: JSON.stringify({
-                feedback: '',
-              }),
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-          ).json();
-          setSubscription((subs) => ({
-            ...subs!,
-            cancelAt: cancel_at,
-          }));
+  }, [selectedPlan, paymentMethod]);
 
-          toast.show('Subscription reactivated successfully');
-          setLoading(false);
-          return;
-        }
-
-        const messages = [];
-        const nextPlan = planMap.get(billing);
-        const currentPlan = planMap.get((currentPackage as PlanTier) || 'FREE');
-        if (
-          nextPlan &&
-          currentPlan &&
-          !nextPlan.pricing.team_members &&
-          currentPlan.pricing.team_members
-        ) {
-          messages.push(
-            `Your team members will be removed from your organization`
-          );
-        }
-        if (billing === 'FREE') {
-            if (
-              cancelAt ||
-              (await deleteDialog(
-              `Are you sure you want to cancel your subscription?
-              ${messages.join(', ')}`,
-              'Yes, cancel',
-              'Cancel Subscription'
-            ))
-          ) {
-            const checkDiscount = await (
-              await fetch('/billing/check-discount')
-            ).json();
-            if (checkDiscount.offerCoupon) {
-              const info = await new Promise((res) => {
-                modal.openModal({
-                  title: 'Before you cancel',
-                  withCloseButton: true,
-                  classNames: {
-                    modal: 'bg-transparent text-textColor',
-                  },
-                  children: <Accept resolve={res} />,
-                });
-              });
-
-              modal.closeAll();
-
-              if (info) {
-                return;
-              }
-            }
-
-            const info = await new Promise((res) => {
-              modal.openModal({
-                title: t(
-                  'we_are_sorry_to_see_you_go',
-                  'We are sorry to see you go :('
-                ),
-                withCloseButton: true,
-                classNames: {
-                  modal: 'bg-transparent text-textColor',
-                },
-                children: <Info proceed={(e) => res(e)} />,
-              });
-            });
-
-            setLoading(true);
-            const { cancel_at } = await (
-              await fetch('/billing/cancel', {
-                method: 'POST',
-                body: JSON.stringify({
-                  feedback: info,
-                }),
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              })
-            ).json();
-            setSubscription((subs) => ({
-              ...subs!,
-              cancelAt: cancel_at,
-              canceledAt: cancel_at,
-            }));
-            if (cancel_at)
-              toast.show('Subscription set to canceled successfully');
-            setLoading(false);
-          }
-          return;
-        }
-        if (
-          messages.length &&
-          !(await deleteDialog(messages.join(', '), 'Yes, continue'))
-        ) {
-          return;
-        }
-        setLoading(true);
-        const { url, portal } = await (
-          await fetch('/billing/subscribe', {
-            method: 'POST',
-            body: JSON.stringify({
-              period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
-              utm,
-              billing,
-              tolt: tolt(),
-            }),
-          })
-        ).json();
-        if (url) {
-          const trackingValue =
-            nextPlan?.pricing[
-              monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
-            ] ?? 0;
-          await track(TrackEnum.InitiateCheckout, {
-            value: trackingValue,
-          });
-          window.location.href = url;
-          return;
-        }
-        if (portal) {
-          if (
-            await deleteDialog(
-              'We could not charge your credit card, please update your payment method',
-              'Update',
-              'Payment Method Required'
-            )
-          ) {
-            window.open(portal);
-          }
-        } else {
-          setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
-          setSubscription((subs) => ({
-            ...subs!,
-            subscriptionTier: billing,
-            cancelAt: null,
-            canceledAt: null,
-          }));
-          mutate(
-            '/user/self',
-            {
-              ...user,
-              tier: billing,
-            },
-            {
-              revalidate: false,
-            }
-          );
-          toast.show('Subscription updated successfully');
-        }
-        setLoading(false);
-      },
-    [monthlyOrYearly, subscription, user, utm]
-  );
-  if (user?.isLifetime) {
-    router.replace('/');
-    return null;
+  if (loadingPlans) {
+    return <LoadingComponent />;
   }
+
   return (
     <div className="flex flex-col gap-[16px]">
-      <div className="flex flex-col sm:flex-row gap-[12px] sm:items-center">
-        <div className="flex-1 text-[18px] sm:text-[20px]">
-          {t('plans', 'Plans')}
-        </div>
-        <div className="flex flex-wrap items-center gap-[12px] text-[12px] sm:text-[14px]">
-          <div>{t('monthly', 'MONTHLY')}</div>
-          <div>
-            <Slider value={monthlyOrYearly} onChange={setMonthlyOrYearly} />
-          </div>
-          <div>{t('yearly', 'YEARLY')}</div>
+      <div className="flex flex-col gap-[6px]">
+        <div className="text-[20px] font-[600]">Billing</div>
+        <div className="text-[13px] text-customColor18">
+          Manage your plan and payment method.
         </div>
       </div>
 
-      {finishTrial && <FinishTrial close={() => setFinishTrial(false)} />}
-      <div className="flex flex-col lg:flex-row gap-[16px] text-center lg:text-left">
-        {visiblePlans.map((plan) => {
-          const name = plan.tier;
-          const values = plan.pricing;
-          return (
-            <div
-              key={name}
-              className="flex-1 bg-sixth border border-customColor6 rounded-[4px] p-[16px] sm:p-[20px] lg:p-[24px] gap-[16px] flex flex-col items-center lg:items-stretch"
+      {isPending && (
+        <div className="bg-sixth border border-customColor6 rounded-[8px] p-[12px] text-[13px] flex flex-col gap-[10px]">
+          <div>
+            Your subscription is pending. Complete payment to activate your
+            plan.
+          </div>
+          <div>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => router.push('/billing/invoice')}
             >
-              <div className="text-[18px]">{name}</div>
-              <div className="text-[28px] sm:text-[32px] lg:text-[38px] flex gap-[2px] items-center">
-                <div>
-                  $
-                  {monthlyOrYearly === 'on'
-                    ? values.year_price
-                    : values.month_price}
-                </div>
-                <div className="text-[14px] text-customColor18">
-                  {monthlyOrYearly === 'on' ? '/year' : '/month'}
-                </div>
-              </div>
-              <div className="text-[14px] flex flex-col sm:flex-row items-center sm:items-start gap-[10px]">
-                {currentPackage === name && subscription?.cancelAt ? (
-                  <div className="gap-[3px] flex flex-col">
-                    <div>
-                      <Button
-                        onClick={moveToCheckout('FREE', true)}
-                        loading={loading}
-                      >
-                        {t(
-                          'reactivate_subscription',
-                          'Reactivate subscription'
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    loading={loading}
-                    disabled={
-                      (!!cancelAt && name === 'FREE') ||
-                      currentPackage === name
-                    }
-                    className={clsx(
-                      subscription && name === 'FREE' && '!bg-red-500'
-                    )}
-                    onClick={moveToCheckout(name)}
-                  >
-                    {currentPackage === name
-                      ? 'Current Plan'
-                      : name === 'FREE'
-                      ? cancelAt
-                        ? `Downgrade on ${dayjs
-                            .utc(cancelAt)
-                            .local()
-                            .format('D MMM, YYYY')}`
-                        : 'Cancel subscription'
-                      : user?.tier?.current === 'FREE' && user.allowTrial
-                      ? t('start_7_days_free_trial', 'Start 7 days free trial')
-                      : 'Purchase'}
-                  </Button>
+              Go to invoice
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-[12px] lg:grid-cols-3">
+        {plans.map((plan) => {
+          const isCurrent = plan.id === currentPlanId;
+          const isSelected = plan.id === selectedPlanId;
+          const priceLabel =
+            plan.price <= 0
+              ? 'Free'
+              : `${formatAmount(plan.price, plan.currency)} / ${plan.durationDays} days`;
+          const trialLabel = plan.trialEnabled
+            ? `${plan.trialDays} day trial`
+            : 'No trial';
+          return (
+            <button
+              key={plan.id}
+              type="button"
+              className={clsx(
+                'text-left bg-sixth border rounded-[10px] p-[14px] flex flex-col gap-[10px] transition',
+                isSelected ? 'border-customColor7' : 'border-customColor6'
+              )}
+              onClick={() => setSelectedPlanId(plan.id)}
+            >
+              <div className="flex items-center justify-between gap-[10px]">
+                <div className="text-[16px] font-[600]">{plan.name}</div>
+                {plan.isDefault && (
+                  <span className="text-[11px] bg-newBgColorInner px-[8px] py-[2px] rounded-full">
+                    Default
+                  </span>
                 )}
-                {subscription &&
-                  currentPackage !== name &&
-                  name !== 'FREE' &&
-                  !!name && (
-                    <Prorate
-                      period={monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY'}
-                      pack={name as 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE'}
-                    />
-                  )}
               </div>
-              <Features plan={values} />
-            </div>
+              <div className="text-[20px]">{priceLabel}</div>
+              <div className="text-[12px] text-customColor18">{trialLabel}</div>
+              {plan.description && (
+                <div className="text-[12px] text-customColor18">
+                  {plan.description}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-x-[12px] gap-y-[6px] text-[12px] text-customColor18">
+                {buildLimitRows(plan).map((row) => (
+                  <div key={row.label} className="flex justify-between gap-[6px]">
+                    <span>{row.label}</span>
+                    <span className="text-white">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-[6px]">
+                <Button
+                  type="button"
+                  disabled={isCurrent}
+                  className={clsx(isCurrent && '!bg-newBgColorInner')}
+                >
+                  {isCurrent ? 'Current plan' : 'Select plan'}
+                </Button>
+              </div>
+            </button>
           );
         })}
       </div>
-        {!subscription?.id && <PurchaseCrypto />}
-      {!!subscription?.id && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center mt-[20px] gap-[10px]">
-          <Button className="w-full sm:w-auto" onClick={updatePayment}>
-            {t(
-              'update_payment_method_invoices_history',
-              'Update Payment Method / Invoices History'
-            )}
-          </Button>
-          {isGeneral && !cancelAt && (
+
+      {selectedPlan && (
+        <div className="bg-sixth border border-customColor6 rounded-[10px] p-[16px] flex flex-col gap-[12px]">
+          <div className="text-[16px] font-[600]">Selected plan</div>
+          <div className="text-[14px]">
+            {selectedPlan.name} ({selectedPlan.key})
+          </div>
+          <div className="text-[13px] text-customColor18">
+            {selectedPlan.price <= 0
+              ? 'This plan is free and can be activated immediately.'
+              : 'Choose a payment method to continue.'}
+          </div>
+
+          {selectedPlan.price > 0 && (
+            <div className="grid gap-[12px]">
+              <Select
+                label="Payment method"
+                name="paymentMethod"
+                disableForm={true}
+                value={paymentMethod}
+                onChange={(event) => setPaymentMethod(event.target.value)}
+              >
+                <option value="">
+                  {loadingMethods ? 'Loading methods...' : 'Select a method'}
+                </option>
+                {methods.map((method) => (
+                  <option key={method.paymentMethod} value={method.paymentMethod}>
+                    {method.paymentName || method.paymentMethod}
+                  </option>
+                ))}
+              </Select>
+              {methods.length === 0 && !loadingMethods && (
+                <div className="text-[12px] text-customColor18">
+                  Payment methods are not available. Check Duitku settings in
+                  admin.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
             <Button
-              className="bg-red-500 w-full sm:w-auto"
-              loading={loading}
-              onClick={moveToCheckout('FREE')}
+              onClick={handleSubscribe}
+              loading={submitting}
+              disabled={selectedPlan.price > 0 && !paymentMethod}
+              className="w-full sm:w-auto"
             >
-              {t('cancel_subscription_1', 'Cancel subscription')}
+              {selectedPlan.price <= 0
+                ? 'Activate plan'
+                : 'Continue to payment'}
             </Button>
-          )}
+          </div>
         </div>
       )}
-      {cancelAt && isGeneral && (
-        <div className="text-center">
-          {t(
-            'your_subscription_will_be_canceled_at',
-            'Your subscription will be canceled at'
-          )}{' '}
-          {newDayjs(cancelAt).local().format('D MMM, YYYY')}
-          <br />
-          {t(
-            'you_will_never_be_charged_again',
-            'You will never be charged again'
-          )}
-        </div>
-      )}
-      <FAQComponent />
     </div>
   );
 };

@@ -1,13 +1,35 @@
-import { IsIn } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class BillingSubscribeDto {
+  @IsOptional()
   @IsIn(['MONTHLY', 'YEARLY'])
-  period: 'MONTHLY' | 'YEARLY';
+  period?: 'MONTHLY' | 'YEARLY';
 
+  @IsOptional()
   @IsIn(['STANDARD', 'PRO', 'TEAM', 'ULTIMATE'])
-  billing: 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE';
+  billing?: 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE';
 
-  utm: string;
+  @IsOptional()
+  @IsString()
+  planId?: string;
 
-  tolt: string;
+  @IsOptional()
+  @IsString()
+  planKey?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  returnUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  utm?: string;
+
+  @IsOptional()
+  @IsString()
+  tolt?: string;
 }

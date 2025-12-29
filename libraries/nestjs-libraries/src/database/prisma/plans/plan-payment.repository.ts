@@ -66,6 +66,18 @@ export class PlanPaymentRepository {
     });
   }
 
+  getPaymentById(id: string) {
+    return this._payment.model.planPayment.findUnique({
+      where: { id },
+      include: {
+        plan: true,
+        organization: true,
+        user: true,
+        subscription: true,
+      },
+    });
+  }
+
   listPayments(params: {
     status?: PaymentStatus;
     orgId?: string;
@@ -76,6 +88,11 @@ export class PlanPaymentRepository {
       where: {
         ...(params.status ? { status: params.status } : {}),
         ...(params.orgId ? { organizationId: params.orgId } : {}),
+      },
+      include: {
+        plan: true,
+        organization: true,
+        user: true,
       },
       orderBy: { createdAt: 'desc' },
       skip: params.skip,

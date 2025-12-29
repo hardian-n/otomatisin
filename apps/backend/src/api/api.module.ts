@@ -45,6 +45,7 @@ import { TelegramInboxService } from '@gitroom/backend/services/inbox/telegram.i
 import { AdminOrganizationsController } from '@gitroom/backend/api/routes/admin.organizations.controller';
 import { AdminUsersController } from '@gitroom/backend/api/routes/admin.users.controller';
 import { AdminPlansController } from '@gitroom/backend/api/routes/admin.plans.controller';
+import { AdminPaymentsController } from '@gitroom/backend/api/routes/admin.payments.controller';
 
 const authenticatedController = [
   UsersController,
@@ -69,6 +70,7 @@ const authenticatedController = [
   AdminOrganizationsController,
   AdminUsersController,
   AdminPlansController,
+  AdminPaymentsController,
 ];
 @Module({
   imports: [UploadModule],
