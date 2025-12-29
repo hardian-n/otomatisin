@@ -36,6 +36,12 @@ type DuitkuSettings = {
   apiKey: string;
 };
 
+type ManualSettings = {
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+};
+
 const STATUS_OPTIONS: PaymentStatus[] = [
   'PENDING',
   'PAID',
@@ -86,6 +92,12 @@ export default function AdminPaymentsPage() {
     apiKey: '',
   });
   const [savingSettings, setSavingSettings] = useState(false);
+  const [manualSettings, setManualSettings] = useState<ManualSettings>({
+    bankName: '',
+    bankAccountNumber: '',
+    bankAccountName: '',
+  });
+  const [savingManual, setSavingManual] = useState(false);
 
   const isAdmin = !!(user as any)?.admin;
 
@@ -135,6 +147,20 @@ export default function AdminPaymentsPage() {
     }
   }, []);
 
+  const loadManualSettings = useCallback(async () => {
+    try {
+      const res = await fetcher('/admin/payments/manual');
+      const data = (await res.json()) as Partial<ManualSettings>;
+      setManualSettings({
+        bankName: data?.bankName || '',
+        bankAccountNumber: data?.bankAccountNumber || '',
+        bankAccountName: data?.bankAccountName || '',
+      });
+    } catch (err: any) {
+      toaster.show(err?.message || 'Failed to load manual settings', 'warning');
+    }
+  }, []);
+
   useEffect(() => {
     loadPayments();
   }, [loadPayments]);
@@ -142,6 +168,10 @@ export default function AdminPaymentsPage() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    loadManualSettings();
+  }, [loadManualSettings]);
 
   useEffect(() => {
     if (selected?.status) {
@@ -189,6 +219,26 @@ export default function AdminPaymentsPage() {
       toaster.show(err?.message || 'Failed to save settings', 'warning');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const saveManualSettings = async () => {
+    setSavingManual(true);
+    try {
+      const res = await fetcher('/admin/payments/manual', {
+        method: 'POST',
+        body: JSON.stringify({
+          bankName: manualSettings.bankName,
+          bankAccountNumber: manualSettings.bankAccountNumber,
+          bankAccountName: manualSettings.bankAccountName,
+        }),
+      });
+      await ensureOk(res, 'Failed to save manual settings');
+      toaster.show('Manual settings saved', 'success');
+    } catch (err: any) {
+      toaster.show(err?.message || 'Failed to save manual settings', 'warning');
+    } finally {
+      setSavingManual(false);
     }
   };
 
@@ -520,6 +570,53 @@ export default function AdminPaymentsPage() {
               />
               <Button type="button" onClick={saveSettings} loading={savingSettings}>
                 Save settings
+              </Button>
+            </div>
+
+            <div className="border border-newTableBorder rounded-[12px] p-[16px] flex flex-col gap-[10px]">
+              <div className="text-[16px] font-[600]">Manual transfer</div>
+              <Input
+                label="Bank name"
+                name="bankName"
+                disableForm={true}
+                value={manualSettings.bankName}
+                onChange={(e: any) =>
+                  setManualSettings((prev) => ({
+                    ...prev,
+                    bankName: e.target.value,
+                  }))
+                }
+              />
+              <Input
+                label="Account number"
+                name="bankAccountNumber"
+                disableForm={true}
+                value={manualSettings.bankAccountNumber}
+                onChange={(e: any) =>
+                  setManualSettings((prev) => ({
+                    ...prev,
+                    bankAccountNumber: e.target.value,
+                  }))
+                }
+              />
+              <Input
+                label="Account name"
+                name="bankAccountName"
+                disableForm={true}
+                value={manualSettings.bankAccountName}
+                onChange={(e: any) =>
+                  setManualSettings((prev) => ({
+                    ...prev,
+                    bankAccountName: e.target.value,
+                  }))
+                }
+              />
+              <Button
+                type="button"
+                onClick={saveManualSettings}
+                loading={savingManual}
+              >
+                Save manual settings
               </Button>
             </div>
           </div>

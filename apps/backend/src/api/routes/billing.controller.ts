@@ -22,6 +22,9 @@ import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
 import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
 import { DuitkuService } from '@gitroom/nestjs-libraries/services/duitku.service';
+import { PaymentSettingsRepository } from '@gitroom/nestjs-libraries/database/prisma/payments/payment-settings.repository';
+import { PaymentProvider, PaymentStatus } from '@prisma/client';
+import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 
 @ApiTags('Billing')
 @Controller('/billing')
@@ -33,7 +36,8 @@ export class BillingController {
     private _nowpayments: Nowpayments,
     private _plansService: PlansService,
     private _planPaymentRepository: PlanPaymentRepository,
-    private _duitkuService: DuitkuService
+    private _duitkuService: DuitkuService,
+    private _paymentSettingsRepository: PaymentSettingsRepository
   ) {}
 
   @Get('/check/:id')
@@ -85,6 +89,69 @@ export class BillingController {
     @Req() req: Request
   ) {
     if (body.planId || body.planKey) {
+      if (body.paymentMethod === 'MANUAL_TRANSFER') {
+        const plan =
+          body.planId
+            ? await this._plansService.getPlanById(body.planId)
+            : body.planKey
+              ? await this._plansService.getPlanByKey(body.planKey)
+              : await this._plansService.getDefaultPlan();
+
+        if (!plan) {
+          throw new BadRequestException('Plan not found');
+        }
+
+        if (plan.price <= 0) {
+          await this._subscriptionService.adminUpdateSubscription(org.id, {
+            planId: plan.id,
+            status: 'ACTIVE',
+          });
+          return {
+            status: 'PAID',
+            provider: PaymentProvider.MANUAL,
+            checkoutUrl: null,
+            plan,
+          };
+        }
+
+        const manualSettings =
+          await this._paymentSettingsRepository.getProviderSettings(
+            PaymentProvider.MANUAL
+          );
+        if (
+          !manualSettings?.bankName ||
+          !manualSettings?.bankAccountNumber ||
+          !manualSettings?.bankAccountName
+        ) {
+          throw new BadRequestException('Manual payment is not configured');
+        }
+
+        const payment = await this._planPaymentRepository.createPayment({
+          organizationId: org.id,
+          planId: plan.id,
+          userId: user.id,
+          status: PaymentStatus.PENDING,
+          amount: plan.price,
+          currency: plan.currency || 'IDR',
+          provider: PaymentProvider.MANUAL,
+          merchantOrderId: `MAN-${makeId(12)}`,
+          paymentMethod: 'MANUAL_TRANSFER',
+        });
+
+        await this._subscriptionService.adminUpdateSubscription(org.id, {
+          planId: plan.id,
+          status: 'PENDING',
+        });
+
+        return {
+          status: payment.status,
+          provider: payment.provider,
+          checkoutUrl: null,
+          plan,
+          paymentId: payment.id,
+        };
+      }
+
       return this._duitkuService.createPayment({
         organizationId: org.id,
         userId: user.id,
@@ -139,13 +206,37 @@ export class BillingController {
     @Query('planId') planId?: string,
     @Query('amount') amount?: string
   ) {
+    const manualSettings =
+      await this._paymentSettingsRepository.getProviderSettings(
+        PaymentProvider.MANUAL
+      );
+    const manualMethod =
+      manualSettings?.bankName &&
+      manualSettings?.bankAccountNumber &&
+      manualSettings?.bankAccountName
+        ? [
+            {
+              paymentMethod: 'MANUAL_TRANSFER',
+              paymentName: `Manual Transfer (${manualSettings.bankName})`,
+            },
+          ]
+        : [];
+
     if (planId) {
       const plan = await this._plansService.getPlanById(planId);
       if (!plan) {
         throw new BadRequestException('Plan not found');
       }
+      const duitkuMethods = await this._duitkuService
+        .getPaymentMethods(plan.price)
+        .catch((err) => {
+          if (!manualMethod.length) {
+            throw err;
+          }
+          return [];
+        });
       return {
-        methods: await this._duitkuService.getPaymentMethods(plan.price),
+        methods: [...manualMethod, ...duitkuMethods],
       };
     }
 
@@ -153,8 +244,17 @@ export class BillingController {
       throw new BadRequestException('Amount is required');
     }
 
+    const duitkuMethods = await this._duitkuService
+      .getPaymentMethods(Number(amount))
+      .catch((err) => {
+        if (!manualMethod.length) {
+          throw err;
+        }
+        return [];
+      });
+
     return {
-      methods: await this._duitkuService.getPaymentMethods(Number(amount)),
+      methods: [...manualMethod, ...duitkuMethods],
     };
   }
 
@@ -164,6 +264,10 @@ export class BillingController {
       await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
     const payment =
       await this._planPaymentRepository.getLatestPendingPayment(org.id);
+    const manualSettings =
+      await this._paymentSettingsRepository.getProviderSettings(
+        PaymentProvider.MANUAL
+      );
     const plan =
       payment?.plan ||
       subscription?.plan ||
@@ -178,6 +282,14 @@ export class BillingController {
       checkoutUrl: payment?.checkoutUrl || null,
       expiresAt: payment?.expiresAt || null,
       plan,
+      manual:
+        payment?.provider === PaymentProvider.MANUAL
+          ? {
+              bankName: manualSettings?.bankName || null,
+              bankAccountNumber: manualSettings?.bankAccountNumber || null,
+              bankAccountName: manualSettings?.bankAccountName || null,
+            }
+          : null,
     };
   }
 

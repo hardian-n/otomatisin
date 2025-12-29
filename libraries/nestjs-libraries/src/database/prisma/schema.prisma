@@ -360,6 +360,9 @@ model PaymentSetting {
   mode         DuitkuMode   @default(SANDBOX)
   merchantCode String?
   apiKey       String?
+  bankName     String?
+  bankAccountNumber String?
+  bankAccountName   String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -1005,6 +1008,7 @@ enum PaymentStatus {
 
 enum PaymentProvider {
   DUITKU
+  MANUAL
 }
 
 enum DuitkuMode {

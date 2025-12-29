@@ -238,6 +238,11 @@ export const MainBillingComponent: FC<{ sub?: BillingSubscription }> = (props) =
         return;
       }
 
+      if (data?.status === 'PENDING' || data?.provider === 'MANUAL') {
+        router.push('/billing/invoice');
+        return;
+      }
+
       toast.show('Plan updated successfully');
       await mutate('/user/self');
       router.refresh();

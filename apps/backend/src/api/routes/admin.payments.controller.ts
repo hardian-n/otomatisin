@@ -153,6 +153,61 @@ export class AdminPaymentsController {
     };
   }
 
+  @Get('/manual')
+  async getManualSettings(@GetUserFromRequest() user: User) {
+    this.ensureAdmin(user);
+
+    const settings =
+      await this._paymentSettingsRepository.getProviderSettings(
+        PaymentProvider.MANUAL
+      );
+
+    return {
+      bankName: settings?.bankName || null,
+      bankAccountNumber: settings?.bankAccountNumber || null,
+      bankAccountName: settings?.bankAccountName || null,
+    };
+  }
+
+  @Post('/manual')
+  async saveManualSettings(
+    @GetUserFromRequest() user: User,
+    @Body()
+    body: {
+      bankName?: string | null;
+      bankAccountNumber?: string | null;
+      bankAccountName?: string | null;
+    }
+  ) {
+    this.ensureAdmin(user);
+
+    const bankName =
+      body.bankName !== undefined ? body.bankName?.trim() || null : undefined;
+    const bankAccountNumber =
+      body.bankAccountNumber !== undefined
+        ? body.bankAccountNumber?.trim() || null
+        : undefined;
+    const bankAccountName =
+      body.bankAccountName !== undefined
+        ? body.bankAccountName?.trim() || null
+        : undefined;
+
+    const saved = await this._paymentSettingsRepository.upsertProviderSettings(
+      PaymentProvider.MANUAL,
+      {
+        bankName,
+        bankAccountNumber,
+        bankAccountName,
+      }
+    );
+
+    return {
+      bankName: saved.bankName,
+      bankAccountNumber: saved.bankAccountNumber,
+      bankAccountName: saved.bankAccountName,
+    };
+  }
+
   @Patch('/:id')
   async updatePaymentStatus(
     @GetUserFromRequest() user: User,
