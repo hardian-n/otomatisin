@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionRepository } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.repository';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
-import { Organization } from '@prisma/client';
+import { Organization, PaymentProvider, PaymentStatus } from '@prisma/client';
 import dayjs from 'dayjs';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { PlansService } from '@gitroom/nestjs-libraries/database/prisma/plans/plans.service';
+import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
 
 const LEGACY_TIER_MAP: Record<string, string> = {
   FREE: 'FREE',
@@ -21,7 +22,8 @@ export class SubscriptionService {
     private readonly _subscriptionRepository: SubscriptionRepository,
     private readonly _integrationService: IntegrationService,
     private readonly _organizationService: OrganizationService,
-    private readonly _plansService: PlansService
+    private readonly _plansService: PlansService,
+    private readonly _planPaymentRepository: PlanPaymentRepository
   ) {}
 
   private normalizePlanKey(key?: string | null) {
@@ -47,6 +49,38 @@ export class SubscriptionService {
     return dayjs(start).add(plan.trialDays, 'day').toDate();
   }
 
+  private async ensureFreePlanUsage(
+    organizationId: string,
+    plan: { id: string; key: string; currency?: string | null },
+    subscriptionId?: string | null
+  ) {
+    const planKey = this.normalizePlanKey(plan.key);
+    if (planKey !== 'FREE') {
+      return;
+    }
+
+    const hasFreePayment =
+      await this._planPaymentRepository.hasPaidPaymentForPlanKey(
+        organizationId,
+        'FREE'
+      );
+    if (hasFreePayment) {
+      return;
+    }
+
+    await this._planPaymentRepository.createPayment({
+      organizationId,
+      planId: plan.id,
+      subscriptionId: subscriptionId || null,
+      status: PaymentStatus.PAID,
+      amount: 0,
+      currency: plan.currency || 'IDR',
+      provider: PaymentProvider.MANUAL,
+      merchantOrderId: `FREE-${makeId(12)}`,
+      paymentMethod: 'FREE_AUTO',
+    });
+  }
+
   getSubscriptionByOrganizationId(organizationId: string) {
     return this.ensureSubscriptionForOrg(organizationId);
   }
@@ -64,7 +98,9 @@ export class SubscriptionService {
       return existing;
     }
 
-    const plan = await this._plansService.getDefaultPlan();
+    const plan =
+      (await this._plansService.getPlanByKey('FREE')) ||
+      (await this._plansService.getDefaultPlan());
     if (!plan) {
       return existing || null;
     }
@@ -83,7 +119,14 @@ export class SubscriptionService {
       canceledAt: null,
     });
 
-    return this._subscriptionRepository.getSubscriptionByOrganizationId(organizationId);
+    const created = await this._subscriptionRepository.getSubscriptionByOrganizationId(
+      organizationId
+    );
+    if (created?.plan) {
+      await this.ensureFreePlanUsage(organizationId, created.plan, created.id);
+    }
+
+    return created;
   }
 
   async getPlanForOrg(organizationId: string) {
@@ -105,6 +148,17 @@ export class SubscriptionService {
         accessPlan = null;
         billingBlocked = true;
       }
+    }
+
+    const planKey = plan?.key ? this.normalizePlanKey(plan.key) : 'FREE';
+    const isFreeExpired =
+      planKey === 'FREE' &&
+      Boolean(subscription?.endsAt) &&
+      dayjs(subscription!.endsAt!).isBefore(dayjs());
+
+    if (isFreeExpired) {
+      accessPlan = null;
+      billingBlocked = true;
     }
 
     return {
@@ -358,6 +412,27 @@ export class SubscriptionService {
       : this.computeEndsAt(startsAt, plan.durationDays);
     const status = data.status || (trialEndsAt ? 'TRIAL' : 'ACTIVE');
 
+    const planKey = this.normalizePlanKey(plan.key);
+    if (planKey === 'FREE') {
+      const hasFreePayment =
+        await this._planPaymentRepository.hasPaidPaymentForPlanKey(
+          organizationId,
+          'FREE'
+        );
+      const currentKey = current?.plan?.key
+        ? this.normalizePlanKey(current.plan.key)
+        : null;
+      const freeExpired =
+        current?.endsAt && dayjs(current.endsAt).isBefore(dayjs());
+      const isReactivation =
+        hasFreePayment && (currentKey !== 'FREE' || freeExpired);
+      const isActivation = status === 'ACTIVE' || status === 'TRIAL';
+
+      if (isReactivation && isActivation) {
+        throw new BadRequestException('Free plan already used');
+      }
+    }
+
     await this._subscriptionRepository.upsertSubscription(organizationId, {
       planId: plan.id,
       status,
@@ -366,6 +441,8 @@ export class SubscriptionService {
       trialEndsAt,
       canceledAt: status === 'CANCELED' ? new Date() : null,
     });
+
+    await this.ensureFreePlanUsage(organizationId, plan, current?.id || null);
 
     return { success: true };
   }

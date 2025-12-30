@@ -112,4 +112,19 @@ export class PlanPaymentRepository {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async hasPaidPaymentForPlanKey(organizationId: string, planKey: string) {
+    const normalizedKey = planKey.trim().toUpperCase();
+    const payment = await this._payment.model.planPayment.findFirst({
+      where: {
+        organizationId,
+        status: 'PAID',
+        plan: {
+          key: normalizedKey,
+        },
+      },
+      select: { id: true },
+    });
+    return Boolean(payment);
+  }
 }

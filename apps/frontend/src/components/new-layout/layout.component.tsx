@@ -68,15 +68,18 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     refreshWhenHidden: false,
   });
 
+  const billingRoute =
+    user?.subscription?.status === 'PENDING' ? '/billing/invoice' : '/billing';
+
   useEffect(() => {
-    if (user?.billingBlocked && pathname !== '/billing/invoice') {
-      router.replace('/billing/invoice');
+    if (user?.billingBlocked && pathname !== billingRoute) {
+      router.replace(billingRoute);
     }
-  }, [user?.billingBlocked, pathname, router]);
+  }, [user?.billingBlocked, user?.subscription?.status, pathname, router]);
 
   if (!user) return null;
 
-  if (user?.billingBlocked && pathname !== '/billing/invoice') {
+  if (user?.billingBlocked && pathname !== billingRoute) {
     return null;
   }
 

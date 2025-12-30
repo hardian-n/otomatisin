@@ -135,6 +135,16 @@ export class DuitkuService {
       throw new BadRequestException('Plan not found');
     }
 
+    if (
+      plan.key?.toUpperCase() === 'FREE' &&
+      (await this._planPaymentRepository.hasPaidPaymentForPlanKey(
+        input.organizationId,
+        'FREE'
+      ))
+    ) {
+      throw new BadRequestException('Free plan already used');
+    }
+
     if (plan.price <= 0) {
       await this._subscriptionService.adminUpdateSubscription(
         input.organizationId,

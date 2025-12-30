@@ -101,6 +101,16 @@ export class BillingController {
           throw new BadRequestException('Plan not found');
         }
 
+        if (
+          plan.key?.toUpperCase() === 'FREE' &&
+          (await this._planPaymentRepository.hasPaidPaymentForPlanKey(
+            org.id,
+            'FREE'
+          ))
+        ) {
+          throw new BadRequestException('Free plan already used');
+        }
+
         if (plan.price <= 0) {
           await this._subscriptionService.adminUpdateSubscription(org.id, {
             planId: plan.id,
