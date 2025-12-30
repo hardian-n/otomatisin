@@ -46,7 +46,7 @@ export const TelegramSettings = () => {
     };
     if (!payload.botName || !payload.botToken) {
       toaster.show(
-        t('telegram_settings_required', 'Please fill bot name and token'),
+        t('telegram_settings_required', 'Silahkan isi Nama Bot dan Token Bot'),
         'warning'
       );
       return;
@@ -57,7 +57,7 @@ export const TelegramSettings = () => {
       body: JSON.stringify(payload),
     });
     toaster.show(
-      t('telegram_settings_saved', 'Telegram settings saved'),
+      t('telegram_settings_saved', 'Pengaturan Telegram sudah tersimpan'),
       'success'
     );
   }, [botName, botToken]);
@@ -76,12 +76,12 @@ export const TelegramSettings = () => {
       <div className="text-[12px] text-customColor18">
         {t(
           'telegram_settings_desc',
-          'Configure your Telegram bot once and connect channels without re-entering tokens.'
+          'Konfigurasikan bot Telegram Anda sekali dan hubungkan saluran tanpa perlu memasukkan token lagi.'
         )}
       </div>
       <div className="flex flex-col gap-[12px]">
         <Input
-          label={t('telegram_bot_name', 'Telegram Bot Name')}
+          label={t('telegram_bot_name', 'Nama Bot Telegram')}
           name="telegramBotName"
           disableForm={true}
           value={botName}
@@ -89,7 +89,7 @@ export const TelegramSettings = () => {
           placeholder="@your_bot"
         />
         <Input
-          label={t('telegram_bot_token', 'Telegram Bot Token')}
+          label={t('telegram_bot_token', 'Token Bot Telegram')}
           name="telegramBotToken"
           disableForm={true}
           type="password"
@@ -100,7 +100,7 @@ export const TelegramSettings = () => {
       </div>
       <div>
         <Button type="button" onClick={saveSettings}>
-          {t('save', 'Save')}
+          {t('save', 'Simpan')}
         </Button>
       </div>
     </div>

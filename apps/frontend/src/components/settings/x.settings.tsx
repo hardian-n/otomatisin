@@ -73,7 +73,7 @@ export const XSettings = () => {
       <div className="text-[12px] text-customColor18">
         {t(
           'x_settings_desc',
-          'Set your X API key and secret once, then add X channels without using environment variables.'
+          'Tetapkan API Key dan API Secret X Anda sekali saja.'
         )}
       </div>
       <div className="flex flex-col gap-[12px]">

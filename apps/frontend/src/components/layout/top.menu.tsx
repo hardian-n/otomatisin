@@ -281,7 +281,6 @@ export const useMenuItem = () => {
       ),
       path: '/billing',
       role: ['ADMIN', 'SUPERADMIN'],
-      requireBilling: true,
     },
     {
       name: t('settings', 'Settings'),
