@@ -113,6 +113,12 @@ export class PlanPaymentRepository {
     });
   }
 
+  deletePayment(id: string) {
+    return this._payment.model.planPayment.delete({
+      where: { id },
+    });
+  }
+
   async hasPaidPaymentForPlanKey(organizationId: string, planKey: string) {
     const normalizedKey = planKey.trim().toUpperCase();
     const payment = await this._payment.model.planPayment.findFirst({

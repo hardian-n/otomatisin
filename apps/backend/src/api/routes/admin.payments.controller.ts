@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -225,5 +226,24 @@ export class AdminPaymentsController {
     }
 
     return this._duitkuService.markPaymentStatus(id, body.status);
+  }
+
+  @Delete('/:id')
+  async deletePayment(
+    @GetUserFromRequest() user: User,
+    @Param('id') id: string
+  ) {
+    this.ensureAdmin(user);
+
+    const payment = await this._planPaymentRepository.getPaymentById(id);
+    if (!payment) {
+      throw new BadRequestException('Payment not found');
+    }
+
+    if (payment.status === PaymentStatus.PAID) {
+      throw new BadRequestException('Paid payments cannot be deleted');
+    }
+
+    return this._planPaymentRepository.deletePayment(id);
   }
 }

@@ -85,6 +85,7 @@ export default function AdminPaymentsPage() {
   const [skip, setSkip] = useState(0);
   const [take, setTake] = useState(50);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [detailStatus, setDetailStatus] = useState<PaymentStatus>('PENDING');
   const [settings, setSettings] = useState<DuitkuSettings>({
     mode: 'SANDBOX',
@@ -202,6 +203,33 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  const deletePayment = async () => {
+    if (!selected) return;
+    if (selected.status === 'PAID') {
+      toaster.show('Paid payments cannot be deleted', 'warning');
+      return;
+    }
+    const confirmed = window.confirm(
+      'Delete this payment? This cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetcher(`/admin/payments/${selected.id}`, {
+        method: 'DELETE',
+      });
+      await ensureOk(res, 'Failed to delete payment');
+      toaster.show('Payment deleted', 'success');
+      setSelected(null);
+      await loadPayments();
+    } catch (err: any) {
+      toaster.show(err?.message || 'Failed to delete payment', 'warning');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const saveSettings = async () => {
     setSavingSettings(true);
     try {
@@ -250,6 +278,8 @@ export default function AdminPaymentsPage() {
     }
     return `${start}-${end}`;
   }, [skip, payments]);
+
+  const canDelete = !!selected && selected.status !== 'PAID';
 
   if (!user) {
     return null;
@@ -525,9 +555,25 @@ export default function AdminPaymentsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Button type="button" onClick={saveStatus} loading={updating}>
-                    Update status
-                  </Button>
+                  <div className="flex flex-col gap-[8px]">
+                    <Button type="button" onClick={saveStatus} loading={updating}>
+                      Update status
+                    </Button>
+                    <Button
+                      type="button"
+                      secondary
+                      onClick={deletePayment}
+                      loading={deleting}
+                      disabled={!canDelete}
+                    >
+                      Delete payment
+                    </Button>
+                    {!canDelete && (
+                      <div className="text-[11px] text-customColor18">
+                        Paid payments cannot be deleted.
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </div>
