@@ -3,10 +3,12 @@
 import { useCalendar } from '@gitroom/frontend/components/launches/calendar.context';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
+import 'dayjs/locale/id';
 import { useCallback } from 'react';
 import { SelectCustomer } from '@gitroom/frontend/components/launches/select.customer';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import i18next from 'i18next';
+import { fallbackLng } from '@gitroom/react/translation/i18n.config';
 import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
 
 // Helper function to get start and end dates based on display type
@@ -40,8 +42,8 @@ export const Filters = () => {
   const t = useT();
 
   // Set dayjs locale based on current language
-  const currentLanguage = i18next.resolvedLanguage || 'en';
-  dayjs.locale();
+  const currentLanguage = i18next.resolvedLanguage || fallbackLng;
+  dayjs.locale(currentLanguage);
 
   // Calculate display date range text
   const getDisplayText = () => {

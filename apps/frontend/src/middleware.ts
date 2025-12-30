@@ -26,10 +26,7 @@ export async function middleware(request: NextRequest) {
     nextUrl.searchParams.get('loggedAuth');
   const lng = request.cookies.has(cookieName)
     ? acceptLanguage.get(request.cookies.get(cookieName).value)
-    : acceptLanguage.get(
-        request.headers.get('Accept-Language') ||
-          request.headers.get('accept-language')
-      );
+    : fallbackLng;
 
   const topResponse = NextResponse.next();
 

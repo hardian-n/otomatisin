@@ -16,6 +16,7 @@ import {
 } from '@gitroom/frontend/components/launches/calendar.context';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
+import 'dayjs/locale/id';
 import 'dayjs/locale/he';
 import 'dayjs/locale/ru';
 import 'dayjs/locale/zh';
@@ -49,6 +50,7 @@ import { useInterval } from '@mantine/hooks';
 import { StatisticsModal } from '@gitroom/frontend/components/launches/statistics';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import i18next from 'i18next';
+import { fallbackLng } from '@gitroom/react/translation/i18n.config';
 import { AddEditModal } from '@gitroom/frontend/components/new-launch/add.edit.modal';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
@@ -62,7 +64,7 @@ extend(localizedFormat);
 
 // Initialize language
 const updateDayjsLocale = () => {
-  const currentLanguage = i18next.resolvedLanguage || 'en';
+  const currentLanguage = i18next.resolvedLanguage || fallbackLng;
   dayjs.locale(currentLanguage);
 };
 
@@ -102,7 +104,7 @@ export const DayView = () => {
   const { integrations, posts, startDate } = calendar;
 
   // Set dayjs locale based on current language
-  const currentLanguage = i18next.resolvedLanguage || 'en';
+  const currentLanguage = i18next.resolvedLanguage || fallbackLng;
   dayjs.locale(currentLanguage);
 
   const currentDay = dayjs.utc(startDate);
@@ -184,7 +186,7 @@ export const WeekView = () => {
 
   // Use dayjs to get localized day names
   const localizedDays = useMemo(() => {
-    const currentLanguage = i18next.resolvedLanguage || 'en';
+    const currentLanguage = i18next.resolvedLanguage || fallbackLng;
     dayjs.locale(currentLanguage);
 
     const days = [];
@@ -256,7 +258,7 @@ export const MonthView = () => {
 
   // Use dayjs to get localized day names
   const localizedDays = useMemo(() => {
-    const currentLanguage = i18next.resolvedLanguage || 'en';
+    const currentLanguage = i18next.resolvedLanguage || fallbackLng;
     dayjs.locale(currentLanguage);
 
     const days = [];
