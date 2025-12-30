@@ -261,7 +261,7 @@ export const useMenuItem = () => {
       requireBilling: true,
     },
     {
-      name: t('billing', 'Billing'),
+      name: t('subscription', 'Subscription'),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -374,7 +374,7 @@ export const TopMenu: FC = () => {
                 if (f.requireBilling && !billingEnabled) {
                   return false;
                 }
-                if (f.name === 'Billing' && user?.isLifetime) {
+                if (f.path === '/billing' && user?.isLifetime) {
                   return false;
                 }
                 if (f.role) {
@@ -404,7 +404,7 @@ export const TopMenu: FC = () => {
             if (f.requireBilling && !billingEnabled) {
               return false;
             }
-            if (f.name === 'Billing' && user?.isLifetime) {
+            if (f.path === '/billing' && user?.isLifetime) {
               return false;
             }
             if (f.role) {

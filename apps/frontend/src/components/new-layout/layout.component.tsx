@@ -83,6 +83,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
   const isAdmin = !!(user as any)?.admin;
   const canShowMenuItem = (item: {
     name: string;
+    path?: string;
     role?: string[];
     hide?: boolean;
     requireBilling?: boolean;
@@ -97,7 +98,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     if (item.requireBilling && !billingEnabled) {
       return false;
     }
-    if (item.name === 'Billing' && user?.isLifetime) {
+    if (item.path === '/billing' && user?.isLifetime) {
       return false;
     }
     if (item.role) {

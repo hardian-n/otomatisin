@@ -67,6 +67,39 @@ const formatAmount = (amount: number, currency?: string) => {
   }
 };
 
+const toDate = (value?: string | Date | null) => {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+};
+
+const formatDate = (value?: string | Date | null) => {
+  const date = toDate(value);
+  if (!date) {
+    return '-';
+  }
+  return date.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getRemainingDays = (value?: string | Date | null) => {
+  const date = toDate(value);
+  if (!date) {
+    return null;
+  }
+  const diffMs = date.getTime() - Date.now();
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, days);
+};
+
 const formatLimit = (value: number | null, unlimited: boolean) => {
   if (unlimited) {
     return 'Unlimited';
@@ -124,6 +157,22 @@ export const MainBillingComponent: FC<{ sub?: BillingSubscription }> = (props) =
     subscription?.planId || subscription?.plan?.id || user?.plan?.id || null;
 
   const isPending = subscription?.status === 'PENDING';
+  const expiresAt = useMemo(() => {
+    if (subscription?.status === 'TRIAL') {
+      return subscription?.trialEndsAt || subscription?.endsAt || null;
+    }
+    return subscription?.endsAt || subscription?.trialEndsAt || null;
+  }, [subscription?.status, subscription?.trialEndsAt, subscription?.endsAt]);
+  const remainingDays = useMemo(() => getRemainingDays(expiresAt), [expiresAt]);
+  const summaryPlan =
+    subscription?.plan?.name || user?.plan?.name || 'Free';
+  const summaryStatus = subscription?.status || 'INACTIVE';
+  const scrollToPlans = useCallback(() => {
+    const section = document.getElementById('subscription-plans');
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   const loadPlans = useCallback(async () => {
     setLoadingPlans(true);
@@ -260,9 +309,42 @@ export const MainBillingComponent: FC<{ sub?: BillingSubscription }> = (props) =
   return (
     <div className="flex flex-col gap-[16px]">
       <div className="flex flex-col gap-[6px]">
-        <div className="text-[20px] font-[600]">Billing</div>
+        <div className="text-[20px] font-[600]">Subscription</div>
         <div className="text-[13px] text-customColor18">
-          Manage your plan and payment method.
+          Review your current plan and renew anytime.
+        </div>
+      </div>
+
+      <div className="bg-sixth border border-customColor6 rounded-[10px] p-[16px] grid gap-[12px] lg:grid-cols-[1fr_auto]">
+        <div className="grid gap-[8px] text-[13px] text-customColor18">
+          <div className="text-[15px] font-[600] text-white">
+            Subscription summary
+          </div>
+          <div className="grid gap-[8px] sm:grid-cols-2">
+            <div className="flex justify-between gap-[8px]">
+              <span>Plan</span>
+              <span className="text-white">{summaryPlan}</span>
+            </div>
+            <div className="flex justify-between gap-[8px]">
+              <span>Status</span>
+              <span className="text-white">{summaryStatus}</span>
+            </div>
+            <div className="flex justify-between gap-[8px]">
+              <span>Expired</span>
+              <span className="text-white">{formatDate(expiresAt)}</span>
+            </div>
+            <div className="flex justify-between gap-[8px]">
+              <span>Days remaining</span>
+              <span className="text-white">
+                {remainingDays === null ? '-' : remainingDays}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-start justify-end">
+          <Button className="w-full sm:w-auto" onClick={scrollToPlans}>
+            Perpanjang
+          </Button>
         </div>
       </div>
 
@@ -283,7 +365,10 @@ export const MainBillingComponent: FC<{ sub?: BillingSubscription }> = (props) =
         </div>
       )}
 
-      <div className="grid gap-[12px] lg:grid-cols-3">
+      <div
+        id="subscription-plans"
+        className="grid gap-[12px] lg:grid-cols-3"
+      >
         {plans.map((plan) => {
           const isCurrent = plan.id === currentPlanId;
           const isSelected = plan.id === selectedPlanId;
