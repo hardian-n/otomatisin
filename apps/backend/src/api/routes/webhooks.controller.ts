@@ -87,6 +87,15 @@ export class WebhookController {
     const payload = JSON.stringify(body || {});
     const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
+    // DEBUG: log incoming signature, expected and payload for troubleshooting (remove after debug)
+    try {
+      console.log('[webhooks.lpCheckout] incoming signature:', signature);
+      console.log('[webhooks.lpCheckout] expected signature:', expected);
+      console.log('[webhooks.lpCheckout] payload:', payload);
+    } catch (e) {
+      /** ignore logging errors **/
+    }
+
     // timingSafeEqual requires buffers of same length
     try {
       const a = Buffer.from(expected);
