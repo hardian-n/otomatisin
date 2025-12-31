@@ -3,6 +3,7 @@ import { EventPattern, Transport } from '@nestjs/microservices';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { WebhooksService } from '@gitroom/nestjs-libraries/database/prisma/webhooks/webhooks.service';
 import { AutopostService } from '@gitroom/nestjs-libraries/database/prisma/autopost/autopost.service';
+import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
 
 @Controller()
 export class PostsController {
@@ -10,6 +11,8 @@ export class PostsController {
     private _postsService: PostsService,
     private _webhooksService: WebhooksService,
     private _autopostsService: AutopostService
+    ,
+    private _planPaymentRepository: PlanPaymentRepository
   ) {}
 
   @EventPattern('post', Transport.REDIS)
@@ -59,6 +62,50 @@ export class PostsController {
         "Unhandled error, let's avoid crashing the webhooks worker",
         err
       );
+    }
+  }
+
+  @EventPattern('lp.checkout', Transport.REDIS)
+  async handleLpCheckout(data: { payload: any; idempotencyKey?: string | null }) {
+    try {
+      const payload = data.payload || {};
+
+      // Minimal mapping: create a PlanPayment record so Otomatisin has the order
+      const merchantOrderId = payload.merchantOrderId || payload.order_id || payload.id || null;
+      const orgId = payload.organizationId || payload.orgId || payload.org || payload.organization || null;
+      const planId = payload.planId || payload.plan_id || null;
+      const amount = payload.amount ? Number(payload.amount) : payload.total ? Number(payload.total) : 0;
+      const currency = payload.currency || 'IDR';
+
+      if (!merchantOrderId || !orgId) {
+        // store as webhook-only event or skip
+        console.log('lp.checkout missing merchantOrderId or orgId', payload);
+        return;
+      }
+
+      // Check if already exists (idempotency)
+      const existing = await this._planPaymentRepository.getPaymentByMerchantOrderId(merchantOrderId);
+      if (existing) {
+        console.log('lp.checkout duplicate merchantOrderId, skipping', merchantOrderId);
+        return existing;
+      }
+
+      const created = await this._planPaymentRepository.createPayment({
+        organizationId: orgId,
+        planId: planId || undefined,
+        status: 'PENDING' as any,
+        amount: amount,
+        currency: currency,
+        provider: 'DUITKU' as any,
+        merchantOrderId: merchantOrderId,
+        requestPayload: payload,
+      });
+
+      console.log('lp.checkout created payment', created.id);
+
+      return created;
+    } catch (err) {
+      console.error('Error processing lp.checkout', err);
     }
   }
 
