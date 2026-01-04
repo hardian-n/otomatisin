@@ -68,28 +68,33 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     refreshWhenHidden: false,
   });
 
+  const subscriptionStatus = user?.subscription?.status;
   const billingRoute =
-    user?.subscription?.status === 'PENDING' ? '/billing/invoice' : '/billing';
+    subscriptionStatus === 'PENDING' ? '/billing/invoice' : '/billing';
 
   const isGlobalSuperAdmin = Boolean(
     (user as any)?.isSuperAdmin || user?.role === 'SUPERADMIN'
   );
+  const isOrgAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  const shouldBillingLock = Boolean(
+    !isGlobalSuperAdmin &&
+      isOrgAdmin &&
+      (subscriptionStatus === 'PENDING' || subscriptionStatus === 'EXPIRED')
+  );
 
   useEffect(() => {
-    if (!isGlobalSuperAdmin && user?.billingBlocked && pathname !== billingRoute) {
+    if (shouldBillingLock && pathname !== billingRoute) {
       router.replace(billingRoute);
     }
   }, [
-    isGlobalSuperAdmin,
-    user?.billingBlocked,
-    user?.subscription?.status,
+    shouldBillingLock,
     pathname,
     router,
   ]);
 
   if (!user) return null;
 
-  if (!isGlobalSuperAdmin && user?.billingBlocked && pathname !== billingRoute) {
+  if (shouldBillingLock && pathname !== billingRoute) {
     return null;
   }
 
