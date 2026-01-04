@@ -71,15 +71,25 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
   const billingRoute =
     user?.subscription?.status === 'PENDING' ? '/billing/invoice' : '/billing';
 
+  const isGlobalSuperAdmin = Boolean(
+    (user as any)?.isSuperAdmin || user?.role === 'SUPERADMIN'
+  );
+
   useEffect(() => {
-    if (user?.billingBlocked && pathname !== billingRoute) {
+    if (!isGlobalSuperAdmin && user?.billingBlocked && pathname !== billingRoute) {
       router.replace(billingRoute);
     }
-  }, [user?.billingBlocked, user?.subscription?.status, pathname, router]);
+  }, [
+    isGlobalSuperAdmin,
+    user?.billingBlocked,
+    user?.subscription?.status,
+    pathname,
+    router,
+  ]);
 
   if (!user) return null;
 
-  if (user?.billingBlocked && pathname !== billingRoute) {
+  if (!isGlobalSuperAdmin && user?.billingBlocked && pathname !== billingRoute) {
     return null;
   }
 
