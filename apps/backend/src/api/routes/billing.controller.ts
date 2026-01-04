@@ -40,6 +40,56 @@ export class BillingController {
     private _paymentSettingsRepository: PaymentSettingsRepository
   ) {}
 
+  private normalizeUniqueCodeSettings(settings?: {
+    uniqueCodeEnabled?: boolean | null;
+    uniqueCodeMin?: number | null;
+    uniqueCodeMax?: number | null;
+  }) {
+    const enabled = settings?.uniqueCodeEnabled ?? true;
+    const minRaw = Number(settings?.uniqueCodeMin ?? 1);
+    const maxRaw = Number(settings?.uniqueCodeMax ?? 999);
+    const min = Math.max(0, Math.min(999, Math.floor(minRaw)));
+    const max = Math.max(min, Math.min(999, Math.floor(maxRaw)));
+    return { enabled, min, max };
+  }
+
+  private async generateUniqueCode(
+    organizationId: string,
+    baseAmount: number,
+    settings?: {
+      uniqueCodeEnabled?: boolean | null;
+      uniqueCodeMin?: number | null;
+      uniqueCodeMax?: number | null;
+    }
+  ) {
+    if (!baseAmount || baseAmount <= 0) {
+      return null;
+    }
+
+    const normalized = this.normalizeUniqueCodeSettings(settings);
+    if (!normalized.enabled || normalized.max <= 0) {
+      return null;
+    }
+
+    const range = normalized.max - normalized.min + 1;
+    const attempts = Math.min(range, 12);
+    for (let i = 0; i < attempts; i += 1) {
+      const candidate =
+        normalized.min + Math.floor(Math.random() * range);
+      const total = baseAmount + candidate;
+      const exists =
+        await this._planPaymentRepository.hasPendingManualPaymentAmount(
+          organizationId,
+          total
+        );
+      if (!exists) {
+        return candidate;
+      }
+    }
+
+    return normalized.min || null;
+  }
+
   @Get('/check/:id')
   async checkId(
     @GetOrgFromRequest() org: Organization,
@@ -136,12 +186,20 @@ export class BillingController {
           throw new BadRequestException('Manual payment is not configured');
         }
 
+        const uniqueCode = await this.generateUniqueCode(
+          org.id,
+          plan.price,
+          manualSettings
+        );
+        const totalAmount = plan.price + (uniqueCode || 0);
+
         const payment = await this._planPaymentRepository.createPayment({
           organizationId: org.id,
           planId: plan.id,
           userId: user.id,
           status: PaymentStatus.PENDING,
-          amount: plan.price,
+          amount: totalAmount,
+          uniqueCode,
           currency: plan.currency || 'IDR',
           provider: PaymentProvider.MANUAL,
           merchantOrderId: `MAN-${makeId(12)}`,
@@ -282,10 +340,17 @@ export class BillingController {
       payment?.plan ||
       subscription?.plan ||
       (await this._plansService.getDefaultPlan());
+    const uniqueCode = payment?.uniqueCode ?? null;
+    const baseAmount =
+      uniqueCode && payment?.amount
+        ? Math.max(payment.amount - uniqueCode, 0)
+        : plan?.price ?? payment?.amount ?? 0;
 
     return {
       pending: subscription?.status === 'PENDING',
       amount: payment?.amount ?? plan?.price ?? 0,
+      baseAmount,
+      uniqueCode,
       currency: payment?.currency || plan?.currency || 'IDR',
       paymentMethod: payment?.paymentMethod || null,
       provider: payment?.provider || null,

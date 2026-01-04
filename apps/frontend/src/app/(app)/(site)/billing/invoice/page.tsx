@@ -16,6 +16,8 @@ type InvoicePlan = {
 type InvoiceResponse = {
   pending: boolean;
   amount: number;
+  baseAmount?: number | null;
+  uniqueCode?: number | null;
   currency: string;
   paymentMethod?: string | null;
   provider?: string | null;
@@ -30,6 +32,13 @@ const formatAmount = (amount: number) => {
   } catch {
     return String(amount);
   }
+};
+
+const formatUniqueCode = (value?: number | null) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return String(value).padStart(3, '0');
 };
 
 export default function InvoicePage() {
@@ -55,9 +64,15 @@ export default function InvoicePage() {
   const methodLabel =
     invoice.paymentMethod || invoice.provider || 'payment method';
   const amountLabel = formatAmount(Number(invoice.amount || 0));
+  const baseAmountLabel = formatAmount(
+    Number(invoice.baseAmount ?? invoice.amount || 0)
+  );
   const currencyLabel = invoice.currency || 'IDR';
+  const uniqueCodeLabel = formatUniqueCode(invoice.uniqueCode);
   const message = invoice.pending
-    ? `Maaf, akun anda belum aktif. Silahkan lakukan pembayaran sebesar ${amountLabel} ${currencyLabel} dengan metode pembayaran ${methodLabel}.`
+    ? uniqueCodeLabel
+      ? `Maaf, akun anda belum aktif. Silahkan lakukan pembayaran sebesar ${amountLabel} ${currencyLabel} dengan metode pembayaran ${methodLabel}. Nomor unik ${uniqueCodeLabel} sudah termasuk di total transfer.`
+      : `Maaf, akun anda belum aktif. Silahkan lakukan pembayaran sebesar ${amountLabel} ${currencyLabel} dengan metode pembayaran ${methodLabel}.`
     : 'Tidak ada tagihan aktif untuk akun anda.';
 
   const handleOk = () => {
@@ -75,6 +90,14 @@ export default function InvoicePage() {
         {invoice.plan?.name && (
           <div className="text-textItemBlur mt-[6px]">
             Plan: {invoice.plan.name}
+          </div>
+        )}
+        {invoice.pending && (
+          <div className="text-textItemBlur mt-[6px]">
+            Total: {amountLabel} {currencyLabel}
+            {uniqueCodeLabel && (
+              <> (Base {baseAmountLabel} + kode {uniqueCodeLabel})</>
+            )}
           </div>
         )}
         <div className="text-textItemBlur mt-[12px]">{message}</div>

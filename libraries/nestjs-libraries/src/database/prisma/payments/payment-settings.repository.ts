@@ -9,6 +9,9 @@ type PaymentSettingsInput = {
   bankName?: string | null;
   bankAccountNumber?: string | null;
   bankAccountName?: string | null;
+  uniqueCodeEnabled?: boolean;
+  uniqueCodeMin?: number | null;
+  uniqueCodeMax?: number | null;
 };
 
 @Injectable()
@@ -42,6 +45,15 @@ export class PaymentSettingsRepository {
         ...(data.bankAccountName !== undefined
           ? { bankAccountName: data.bankAccountName }
           : {}),
+        ...(data.uniqueCodeEnabled !== undefined
+          ? { uniqueCodeEnabled: data.uniqueCodeEnabled }
+          : {}),
+        ...(data.uniqueCodeMin !== undefined
+          ? { uniqueCodeMin: data.uniqueCodeMin }
+          : {}),
+        ...(data.uniqueCodeMax !== undefined
+          ? { uniqueCodeMax: data.uniqueCodeMax }
+          : {}),
       },
       create: {
         provider,
@@ -51,6 +63,9 @@ export class PaymentSettingsRepository {
         bankName: data.bankName || null,
         bankAccountNumber: data.bankAccountNumber || null,
         bankAccountName: data.bankAccountName || null,
+        uniqueCodeEnabled: data.uniqueCodeEnabled ?? true,
+        uniqueCodeMin: data.uniqueCodeMin ?? 1,
+        uniqueCodeMax: data.uniqueCodeMax ?? 999,
       },
     });
   }

@@ -13,6 +13,7 @@ export class PlanPaymentRepository {
     subscriptionId?: string | null;
     status: PaymentStatus;
     amount: number;
+    uniqueCode?: number | null;
     currency: string;
     provider: PaymentProvider;
     merchantOrderId: string;
@@ -111,6 +112,19 @@ export class PlanPaymentRepository {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async hasPendingManualPaymentAmount(organizationId: string, amount: number) {
+    const payment = await this._payment.model.planPayment.findFirst({
+      where: {
+        organizationId,
+        status: 'PENDING',
+        provider: PaymentProvider.MANUAL,
+        amount,
+      },
+      select: { id: true },
+    });
+    return Boolean(payment);
   }
 
   deletePayment(id: string) {

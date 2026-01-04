@@ -331,6 +331,7 @@ model PlanPayment {
   subscriptionId   String?
   status           PaymentStatus  @default(PENDING)
   amount           Int
+  uniqueCode       Int?
   currency         String         @default("IDR")
   provider         PaymentProvider @default(DUITKU)
   merchantOrderId  String         @unique
@@ -363,6 +364,9 @@ model PaymentSetting {
   bankName     String?
   bankAccountNumber String?
   bankAccountName   String?
+  uniqueCodeEnabled Boolean @default(true)
+  uniqueCodeMin     Int     @default(1)
+  uniqueCodeMax     Int     @default(999)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }

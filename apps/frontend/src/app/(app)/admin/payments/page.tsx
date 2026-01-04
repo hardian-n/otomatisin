@@ -17,6 +17,7 @@ type PaymentRow = {
   status: PaymentStatus;
   amount: number;
   currency: string;
+  uniqueCode?: number | null;
   provider?: string | null;
   merchantOrderId?: string | null;
   reference?: string | null;
@@ -40,6 +41,9 @@ type ManualSettings = {
   bankName: string;
   bankAccountNumber: string;
   bankAccountName: string;
+  uniqueCodeEnabled: boolean;
+  uniqueCodeMin: string;
+  uniqueCodeMax: string;
 };
 
 const STATUS_OPTIONS: PaymentStatus[] = [
@@ -73,6 +77,13 @@ const formatAmount = (amount?: number, currency?: string) => {
   }
 };
 
+const formatUniqueCode = (value?: number | null) => {
+  if (value === undefined || value === null) {
+    return '-';
+  }
+  return String(value).padStart(3, '0');
+};
+
 export default function AdminPaymentsPage() {
   const fetcher = useFetch();
   const user = useUser();
@@ -97,6 +108,9 @@ export default function AdminPaymentsPage() {
     bankName: '',
     bankAccountNumber: '',
     bankAccountName: '',
+    uniqueCodeEnabled: true,
+    uniqueCodeMin: '1',
+    uniqueCodeMax: '999',
   });
   const [savingManual, setSavingManual] = useState(false);
 
@@ -156,6 +170,15 @@ export default function AdminPaymentsPage() {
         bankName: data?.bankName || '',
         bankAccountNumber: data?.bankAccountNumber || '',
         bankAccountName: data?.bankAccountName || '',
+        uniqueCodeEnabled: data?.uniqueCodeEnabled ?? true,
+        uniqueCodeMin:
+          data?.uniqueCodeMin !== undefined && data?.uniqueCodeMin !== null
+            ? String(data.uniqueCodeMin)
+            : '1',
+        uniqueCodeMax:
+          data?.uniqueCodeMax !== undefined && data?.uniqueCodeMax !== null
+            ? String(data.uniqueCodeMax)
+            : '999',
       });
     } catch (err: any) {
       toaster.show(err?.message || 'Failed to load manual settings', 'warning');
@@ -259,6 +282,13 @@ export default function AdminPaymentsPage() {
           bankName: manualSettings.bankName,
           bankAccountNumber: manualSettings.bankAccountNumber,
           bankAccountName: manualSettings.bankAccountName,
+          uniqueCodeEnabled: manualSettings.uniqueCodeEnabled,
+          uniqueCodeMin: manualSettings.uniqueCodeMin
+            ? Number(manualSettings.uniqueCodeMin)
+            : null,
+          uniqueCodeMax: manualSettings.uniqueCodeMax
+            ? Number(manualSettings.uniqueCodeMax)
+            : null,
         }),
       });
       await ensureOk(res, 'Failed to save manual settings');
@@ -492,6 +522,13 @@ export default function AdminPaymentsPage() {
                     readOnly
                   />
                   <Input
+                    label="Unique code"
+                    name="uniqueCode"
+                    disableForm={true}
+                    value={formatUniqueCode(selected.uniqueCode)}
+                    readOnly
+                  />
+                  <Input
                     label="Merchant Order ID"
                     name="merchantOrderId"
                     disableForm={true}
@@ -657,6 +694,53 @@ export default function AdminPaymentsPage() {
                   }))
                 }
               />
+              <Select
+                label="Unique code"
+                name="uniqueCodeEnabled"
+                disableForm={true}
+                value={manualSettings.uniqueCodeEnabled ? 'on' : 'off'}
+                onChange={(e: any) =>
+                  setManualSettings((prev) => ({
+                    ...prev,
+                    uniqueCodeEnabled: e.target.value === 'on',
+                  }))
+                }
+              >
+                <option value="on">Enabled</option>
+                <option value="off">Disabled</option>
+              </Select>
+              <div className="grid grid-cols-2 gap-[10px]">
+                <Input
+                  label="Unique code min"
+                  name="uniqueCodeMin"
+                  disableForm={true}
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={manualSettings.uniqueCodeMin}
+                  onChange={(e: any) =>
+                    setManualSettings((prev) => ({
+                      ...prev,
+                      uniqueCodeMin: e.target.value,
+                    }))
+                  }
+                />
+                <Input
+                  label="Unique code max"
+                  name="uniqueCodeMax"
+                  disableForm={true}
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={manualSettings.uniqueCodeMax}
+                  onChange={(e: any) =>
+                    setManualSettings((prev) => ({
+                      ...prev,
+                      uniqueCodeMax: e.target.value,
+                    }))
+                  }
+                />
+              </div>
               <Button
                 type="button"
                 onClick={saveManualSettings}

@@ -61,11 +61,12 @@ export class AdminPaymentsController {
       take: resolvedTake,
     });
 
-    return payments.map((payment) => ({
+      return payments.map((payment) => ({
       id: payment.id,
       status: payment.status,
       amount: payment.amount,
       currency: payment.currency,
+      uniqueCode: payment.uniqueCode,
       provider: payment.provider,
       merchantOrderId: payment.merchantOrderId,
       reference: payment.reference,
@@ -167,6 +168,9 @@ export class AdminPaymentsController {
       bankName: settings?.bankName || null,
       bankAccountNumber: settings?.bankAccountNumber || null,
       bankAccountName: settings?.bankAccountName || null,
+      uniqueCodeEnabled: settings?.uniqueCodeEnabled ?? true,
+      uniqueCodeMin: settings?.uniqueCodeMin ?? 1,
+      uniqueCodeMax: settings?.uniqueCodeMax ?? 999,
     };
   }
 
@@ -178,6 +182,9 @@ export class AdminPaymentsController {
       bankName?: string | null;
       bankAccountNumber?: string | null;
       bankAccountName?: string | null;
+      uniqueCodeEnabled?: boolean | null;
+      uniqueCodeMin?: number | null;
+      uniqueCodeMax?: number | null;
     }
   ) {
     this.ensureAdmin(user);
@@ -192,6 +199,30 @@ export class AdminPaymentsController {
       body.bankAccountName !== undefined
         ? body.bankAccountName?.trim() || null
         : undefined;
+    const uniqueCodeEnabled =
+      body.uniqueCodeEnabled !== undefined && body.uniqueCodeEnabled !== null
+        ? Boolean(body.uniqueCodeEnabled)
+        : undefined;
+    const uniqueCodeMin =
+      body.uniqueCodeMin !== undefined && body.uniqueCodeMin !== null
+        ? Number(body.uniqueCodeMin)
+        : undefined;
+    const uniqueCodeMax =
+      body.uniqueCodeMax !== undefined && body.uniqueCodeMax !== null
+        ? Number(body.uniqueCodeMax)
+        : undefined;
+
+    const hasMin = uniqueCodeMin !== undefined;
+    const hasMax = uniqueCodeMax !== undefined;
+    if (hasMin && (!Number.isFinite(uniqueCodeMin) || uniqueCodeMin < 0 || uniqueCodeMin > 999)) {
+      throw new BadRequestException('Invalid unique code minimum');
+    }
+    if (hasMax && (!Number.isFinite(uniqueCodeMax) || uniqueCodeMax < 0 || uniqueCodeMax > 999)) {
+      throw new BadRequestException('Invalid unique code maximum');
+    }
+    if (hasMin && hasMax && uniqueCodeMin > uniqueCodeMax) {
+      throw new BadRequestException('Unique code minimum must be <= maximum');
+    }
 
     const saved = await this._paymentSettingsRepository.upsertProviderSettings(
       PaymentProvider.MANUAL,
@@ -199,6 +230,9 @@ export class AdminPaymentsController {
         bankName,
         bankAccountNumber,
         bankAccountName,
+        uniqueCodeEnabled,
+        uniqueCodeMin,
+        uniqueCodeMax,
       }
     );
 
@@ -206,6 +240,9 @@ export class AdminPaymentsController {
       bankName: saved.bankName,
       bankAccountNumber: saved.bankAccountNumber,
       bankAccountName: saved.bankAccountName,
+      uniqueCodeEnabled: saved.uniqueCodeEnabled ?? true,
+      uniqueCodeMin: saved.uniqueCodeMin ?? 1,
+      uniqueCodeMax: saved.uniqueCodeMax ?? 999,
     };
   }
 
