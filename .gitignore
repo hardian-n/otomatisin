@@ -61,3 +61,4 @@ i18n.cache
 .env.backend
 .env.dev
 .env.prod
+/.github/workflows/hapus
