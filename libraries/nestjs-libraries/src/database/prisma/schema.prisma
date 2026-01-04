@@ -338,6 +338,9 @@ model PlanPayment {
   reference        String?
   paymentMethod    String?
   checkoutUrl      String?
+  proofUrl         String?
+  proofFilename    String?
+  proofUploadedAt  DateTime?
   expiresAt        DateTime?
   paidAt           DateTime?
   requestPayload   Json?

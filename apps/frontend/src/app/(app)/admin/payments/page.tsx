@@ -26,6 +26,9 @@ type PaymentRow = {
   expiresAt?: string | null;
   paidAt?: string | null;
   createdAt?: string | null;
+  proofUrl?: string | null;
+  proofFilename?: string | null;
+  proofUploadedAt?: string | null;
   organization?: { id: string; name: string } | null;
   plan?: { id: string; key: string; name: string; price: number; currency: string } | null;
   user?: { id: string; name?: string | null; email: string } | null;
@@ -577,6 +580,30 @@ export default function AdminPaymentsPage() {
                     value={formatDateTime(selected.paidAt || null)}
                     readOnly
                   />
+                  <div className="flex flex-col gap-[6px] border border-newTableBorder rounded-[10px] p-[10px]">
+                    <div className="text-[12px] text-customColor18">
+                      Transfer proof
+                    </div>
+                    {selected.proofUrl ? (
+                      <>
+                        <a
+                          href={selected.proofUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[13px] underline"
+                        >
+                          {selected.proofFilename || selected.proofUrl}
+                        </a>
+                        <div className="text-[11px] text-customColor18">
+                          Uploaded: {formatDateTime(selected.proofUploadedAt || null)}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-customColor18">
+                        No proof uploaded yet.
+                      </div>
+                    )}
+                  </div>
                   <Select
                     label="Status"
                     name="status"

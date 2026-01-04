@@ -40,6 +40,9 @@ export class PlanPaymentRepository {
       reference: string | null;
       paymentMethod: string | null;
       checkoutUrl: string | null;
+      proofUrl: string | null;
+      proofFilename: string | null;
+      proofUploadedAt: Date | null;
       expiresAt: Date | null;
       paidAt: Date | null;
       responsePayload: any;

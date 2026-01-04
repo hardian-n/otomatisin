@@ -63,7 +63,7 @@ export class AdminPaymentsController {
       take: resolvedTake,
     });
 
-      return payments.map((payment) => ({
+    return payments.map((payment) => ({
       id: payment.id,
       status: payment.status,
       amount: payment.amount,
@@ -77,6 +77,9 @@ export class AdminPaymentsController {
       expiresAt: payment.expiresAt,
       paidAt: payment.paidAt,
       createdAt: payment.createdAt,
+      proofUrl: payment.proofUrl,
+      proofFilename: payment.proofFilename,
+      proofUploadedAt: payment.proofUploadedAt,
       organization: payment.organization
         ? {
             id: payment.organization.id,

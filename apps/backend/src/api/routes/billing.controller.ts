@@ -7,6 +7,9 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
+  UsePipes,
 } from '@nestjs/common';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
@@ -25,10 +28,15 @@ import { DuitkuService } from '@gitroom/nestjs-libraries/services/duitku.service
 import { PaymentSettingsRepository } from '@gitroom/nestjs-libraries/database/prisma/payments/payment-settings.repository';
 import { PaymentProvider, PaymentStatus } from '@prisma/client';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { CustomFileValidationPipe } from '@gitroom/nestjs-libraries/upload/custom.upload.validation';
+import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 
 @ApiTags('Billing')
 @Controller('/billing')
 export class BillingController {
+  private storage = UploadFactory.createStorage();
+
   constructor(
     private _subscriptionService: SubscriptionService,
     private _stripeService: StripeService,
@@ -361,6 +369,9 @@ export class BillingController {
       provider: payment?.provider || null,
       checkoutUrl: payment?.checkoutUrl || null,
       expiresAt: payment?.expiresAt || null,
+      proofUrl: payment?.proofUrl || null,
+      proofFilename: payment?.proofFilename || null,
+      proofUploadedAt: payment?.proofUploadedAt || null,
       plan,
       manual:
         payment?.provider === PaymentProvider.MANUAL
@@ -370,6 +381,46 @@ export class BillingController {
               bankAccountName: manualSettings?.bankAccountName || null,
             }
           : null,
+    };
+  }
+
+  @Post('/invoice/proof')
+  @UseInterceptors(FileInterceptor('file'))
+  @UsePipes(new CustomFileValidationPipe())
+  async uploadInvoiceProof(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    const payment =
+      await this._planPaymentRepository.getLatestPendingPayment(org.id);
+
+    if (!payment) {
+      throw new BadRequestException('No pending payment found');
+    }
+
+    if (payment.provider !== PaymentProvider.MANUAL) {
+      throw new BadRequestException('Proof is only for manual payments');
+    }
+
+    if (payment.status !== PaymentStatus.PENDING) {
+      throw new BadRequestException('Payment is not pending');
+    }
+
+    const uploaded = await this.storage.uploadFile(file);
+    const updated = await this._planPaymentRepository.updatePayment(
+      payment.id,
+      {
+        proofUrl: uploaded.path,
+        proofFilename: uploaded.originalname || file.originalname,
+        proofUploadedAt: new Date(),
+      }
+    );
+
+    return {
+      proofUrl: updated.proofUrl,
+      proofFilename: updated.proofFilename,
+      proofUploadedAt: updated.proofUploadedAt,
     };
   }
 
