@@ -65,7 +65,7 @@ export default function InvoicePage() {
     invoice.paymentMethod || invoice.provider || 'payment method';
   const amountLabel = formatAmount(Number(invoice.amount || 0));
   const baseAmountLabel = formatAmount(
-    Number(invoice.baseAmount ?? invoice.amount || 0)
+    Number((invoice.baseAmount ?? invoice.amount) || 0)
   );
   const currencyLabel = invoice.currency || 'IDR';
   const uniqueCodeLabel = formatUniqueCode(invoice.uniqueCode);
