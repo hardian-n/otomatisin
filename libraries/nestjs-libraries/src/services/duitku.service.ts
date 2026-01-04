@@ -180,6 +180,10 @@ export class DuitkuService {
     const expiryMinutes = 60;
     const callbackUrl = this.getCallbackUrl();
     const returnUrl = this.getReturnUrl(input.returnUrl);
+    const previousSubscription =
+      await this._subscriptionService.getSubscriptionSnapshot(
+        input.organizationId
+      );
 
     const payload = {
       merchantCode: settings.merchantCode,
@@ -227,7 +231,9 @@ export class DuitkuService {
       paymentMethod,
       checkoutUrl: data?.paymentUrl || null,
       expiresAt,
-      requestPayload: payload,
+      requestPayload: previousSubscription
+        ? { ...payload, previousSubscription }
+        : payload,
       responsePayload: data,
     });
 

@@ -147,4 +147,16 @@ export class PlanPaymentRepository {
     });
     return Boolean(payment);
   }
+
+  async hasOtherPendingPayment(organizationId: string, excludeId: string) {
+    const payment = await this._payment.model.planPayment.findFirst({
+      where: {
+        organizationId,
+        status: PaymentStatus.PENDING,
+        id: { not: excludeId },
+      },
+      select: { id: true },
+    });
+    return Boolean(payment);
+  }
 }

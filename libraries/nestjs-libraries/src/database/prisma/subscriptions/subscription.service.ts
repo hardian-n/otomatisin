@@ -49,6 +49,105 @@ export class SubscriptionService {
     return dayjs(start).add(plan.trialDays, 'day').toDate();
   }
 
+  private parseSnapshotDate(value?: string | Date | null) {
+    if (!value) {
+      return null;
+    }
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed;
+  }
+
+  buildSubscriptionSnapshot(subscription?: {
+    planId?: string | null;
+    status?: 'PENDING' | 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELED';
+    startsAt?: Date | null;
+    endsAt?: Date | null;
+    trialEndsAt?: Date | null;
+    canceledAt?: Date | null;
+  }) {
+    if (!subscription) {
+      return null;
+    }
+    return {
+      planId: subscription.planId ?? null,
+      status: subscription.status ?? 'ACTIVE',
+      startsAt: subscription.startsAt?.toISOString() ?? null,
+      endsAt: subscription.endsAt?.toISOString() ?? null,
+      trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
+      canceledAt: subscription.canceledAt?.toISOString() ?? null,
+    };
+  }
+
+  async getSubscriptionSnapshot(organizationId: string) {
+    const current =
+      await this._subscriptionRepository.getSubscriptionByOrganizationId(
+        organizationId
+      );
+    return this.buildSubscriptionSnapshot(current || undefined);
+  }
+
+  async restoreSubscriptionSnapshot(
+    organizationId: string,
+    snapshot?: {
+      planId?: string | null;
+      status?: 'PENDING' | 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELED';
+      startsAt?: string | Date | null;
+      endsAt?: string | Date | null;
+      trialEndsAt?: string | Date | null;
+      canceledAt?: string | Date | null;
+    } | null
+  ) {
+    if (!snapshot) {
+      return false;
+    }
+
+    const validStatuses = ['PENDING', 'ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELED'];
+    const status = validStatuses.includes(snapshot.status || '')
+      ? (snapshot.status as
+          | 'PENDING'
+          | 'ACTIVE'
+          | 'TRIAL'
+          | 'EXPIRED'
+          | 'CANCELED')
+      : 'ACTIVE';
+
+    let planId = snapshot.planId ?? null;
+    if (planId) {
+      const plan = await this._plansService.getPlanById(planId);
+      if (!plan) {
+        planId = (await this._plansService.getDefaultPlan())?.id ?? null;
+      }
+    } else {
+      planId = (await this._plansService.getDefaultPlan())?.id ?? null;
+    }
+
+    const startsAt = this.parseSnapshotDate(snapshot.startsAt) || new Date();
+    const endsAt = this.parseSnapshotDate(snapshot.endsAt);
+    const trialEndsAt = this.parseSnapshotDate(snapshot.trialEndsAt);
+    const canceledAt = this.parseSnapshotDate(snapshot.canceledAt);
+
+    await this._subscriptionRepository.upsertSubscription(organizationId, {
+      planId,
+      status,
+      startsAt,
+      endsAt,
+      trialEndsAt,
+      canceledAt,
+    });
+
+    if (planId) {
+      const plan = await this._plansService.getPlanById(planId);
+      if (plan) {
+        await this.ensureFreePlanUsage(organizationId, plan, null);
+      }
+    }
+
+    return true;
+  }
+
   private async ensureFreePlanUsage(
     organizationId: string,
     plan: { id: string; key: string; currency?: string | null },

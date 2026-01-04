@@ -192,6 +192,8 @@ export class BillingController {
           manualSettings
         );
         const totalAmount = plan.price + (uniqueCode || 0);
+        const previousSubscription =
+          await this._subscriptionService.getSubscriptionSnapshot(org.id);
 
         const payment = await this._planPaymentRepository.createPayment({
           organizationId: org.id,
@@ -204,6 +206,9 @@ export class BillingController {
           provider: PaymentProvider.MANUAL,
           merchantOrderId: `MAN-${makeId(12)}`,
           paymentMethod: 'MANUAL_TRANSFER',
+          requestPayload: previousSubscription
+            ? { previousSubscription }
+            : undefined,
         });
 
         await this._subscriptionService.adminUpdateSubscription(org.id, {

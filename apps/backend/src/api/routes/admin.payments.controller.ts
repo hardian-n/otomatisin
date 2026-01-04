@@ -21,6 +21,7 @@ import { HttpForbiddenException } from '@gitroom/nestjs-libraries/services/excep
 import { PlanPaymentRepository } from '@gitroom/nestjs-libraries/database/prisma/plans/plan-payment.repository';
 import { PaymentSettingsRepository } from '@gitroom/nestjs-libraries/database/prisma/payments/payment-settings.repository';
 import { DuitkuService } from '@gitroom/nestjs-libraries/services/duitku.service';
+import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 
 @ApiTags('Admin')
 @Controller('/admin/payments')
@@ -28,7 +29,8 @@ export class AdminPaymentsController {
   constructor(
     private readonly _planPaymentRepository: PlanPaymentRepository,
     private readonly _paymentSettingsRepository: PaymentSettingsRepository,
-    private readonly _duitkuService: DuitkuService
+    private readonly _duitkuService: DuitkuService,
+    private readonly _subscriptionService: SubscriptionService
   ) {}
 
   private ensureAdmin(user: User) {
@@ -281,6 +283,24 @@ export class AdminPaymentsController {
       throw new BadRequestException('Paid payments cannot be deleted');
     }
 
-    return this._planPaymentRepository.deletePayment(id);
+    if (payment.status === PaymentStatus.PENDING) {
+      const hasOtherPending =
+        await this._planPaymentRepository.hasOtherPendingPayment(
+          payment.organizationId,
+          payment.id
+        );
+
+      if (!hasOtherPending) {
+        const previousSnapshot =
+          (payment as any)?.requestPayload?.previousSubscription;
+        await this._subscriptionService.restoreSubscriptionSnapshot(
+          payment.organizationId,
+          previousSnapshot
+        );
+      }
+    }
+
+    await this._planPaymentRepository.deletePayment(id);
+    return { ok: true };
   }
 }
