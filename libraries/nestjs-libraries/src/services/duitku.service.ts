@@ -35,6 +35,36 @@ export class DuitkuService {
     private readonly _subscriptionService: SubscriptionService
   ) {}
 
+  private shouldKeepActiveDuringCheckout(subscription?: {
+    status?: string | null;
+    endsAt?: Date | string | null;
+    trialEndsAt?: Date | string | null;
+  }) {
+    if (!subscription?.status) {
+      return false;
+    }
+
+    const status = String(subscription.status).toUpperCase();
+    if (status !== 'ACTIVE' && status !== 'TRIAL') {
+      return false;
+    }
+
+    const now = Date.now();
+    const endsAt = subscription.endsAt
+      ? new Date(subscription.endsAt).getTime()
+      : null;
+    const trialEndsAt = subscription.trialEndsAt
+      ? new Date(subscription.trialEndsAt).getTime()
+      : null;
+    const latestEnd = Math.max(endsAt ?? 0, trialEndsAt ?? 0);
+
+    if (!latestEnd) {
+      return true;
+    }
+
+    return latestEnd > now;
+  }
+
   private getApiBaseUrl(mode: DuitkuMode) {
     return mode === DuitkuMode.PRODUCTION
       ? 'https://passport.duitku.com'
@@ -237,13 +267,19 @@ export class DuitkuService {
       responsePayload: data,
     });
 
-    await this._subscriptionService.adminUpdateSubscription(
-      input.organizationId,
-      {
-        planId: plan.id,
-        status: 'PENDING',
-      }
-    );
+    const currentSubscription =
+      await this._subscriptionService.getSubscriptionByOrganizationId(
+        input.organizationId
+      );
+    if (!this.shouldKeepActiveDuringCheckout(currentSubscription)) {
+      await this._subscriptionService.adminUpdateSubscription(
+        input.organizationId,
+        {
+          planId: plan.id,
+          status: 'PENDING',
+        }
+      );
+    }
 
     return {
       status: payment.status,
